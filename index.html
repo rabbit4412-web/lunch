@@ -505,13 +505,22 @@ function initFB(){
       }
       renderAll();if(isAdmin)renderAdmin();
     });
-    db.ref('.info/connected').on('value',s=>setSS(s.val()?'ok':'off'));
+    db.ref('.info/connected').on('value',s=>{
+      setSS(s.val()?'ok':'off');
+      renderAll();
+    });
     db.ref('lockedOrders').on('value',s=>{
       const v=s.val();
       if(v) DAY_KEYS.forEach(dk=>{if(v[dk]) lockedOrders[dk]=v[dk];});
       renderAll();
     });
-  }catch(e){console.error(e);setSS('off');document.getElementById('fbBanner').className='warn';document.getElementById('fbBanner').textContent='⚠️ Firebase 連線失敗';}
+  }catch(e){
+    console.error(e);
+    setSS('off');
+    document.getElementById('fbBanner').className='warn';
+    document.getElementById('fbBanner').textContent='⚠️ Firebase 連線失敗，請檢查網路';
+    renderAll(); // 連線失敗也要渲染畫面
+  }
 }
 function setSS(s){document.getElementById('syncDot').className='sync-dot'+(s==='syncing'?' syncing':s==='off'?' off':'');}
 function pushOrders(){if(db){setSS('syncing');db.ref('orders/'+dk()).set(orders[dk()]||{}).then(()=>setSS('ok')).catch(()=>setSS('off'));}}
@@ -1202,7 +1211,7 @@ function showToast(msg){
 }
 
 initFB();
-// 不自動補預設資料，由管理員手動新增
+renderAll(); // 初始渲染，確保 ⚙️ 按鈕和基本框架顯示
 </script>
 </body>
 </html>
