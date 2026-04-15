@@ -742,9 +742,7 @@ function confirmOrder(){
   const o=getOrder(curMember.dept,curMember.name);
   if(!Object.keys(o.items||{}).length){showToast('請先點選餐點');return;}
   const total=mTotal(curMember.dept,curMember.name);
-  if(!confirm(curMember.name+' 確認送出訂單？
-送出後無法更改
-合計：NT$'+total)){return;}
+  if(!confirm(curMember.name+' 確認送出訂單？\n送出後無法更改\n合計：NT$'+total)){return;}
   lockMember(curMember.dept,curMember.name);
   curMember=null;
   renderAll();
