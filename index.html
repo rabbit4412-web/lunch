@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>公司便當訂購系統</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+:root{
+  --green:#1D9E75;--gl:#E1F5EE;--gd:#085041;--gm:#0F6E56;
+  --blue:#378ADD;--bl:#E6F1FB;
+  --amber:#BA7517;--al:#FAEEDA;
+  --red:#E24B4A;--rl:#FCEBEB;
+  --purple:#534AB7;--pl:#EEEDFE;
+  --bg:#F4F3EF;--sf:#fff;--sf2:#F9F8F5;
+  --bd:rgba(0,0,0,.09);--bd2:rgba(0,0,0,.15);
+  --tx:#1a1a1a;--sub:#666;--hint:#aaa;
+  --r:12px;--rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;padding-bottom:100px;}
+button,input,select{font-family:inherit;}
+
+#fbBanner{padding:8px 14px;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#d1fae5;border-bottom:1px solid #34d399;color:#065f46;}
+#fbBanner.warn{background:#fff3cd;border-color:#ffc107;color:#856404;}
+
+.hdr{background:var(--green);padding:13px 16px 10px;position:sticky;top:0;z-index:60;box-shadow:0 2px 12px rgba(0,0,0,.18);}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.hdr-left{display:flex;align-items:center;gap:8px;}
+.hdr h1{font-size:16px;font-weight:700;color:#fff;}
+.admin-badge{background:rgba(255,255,255,.25);color:#fff;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid rgba(255,255,255,.4);}
+.hdr-amt{font-size:20px;font-weight:700;color:#fff;}
+.hdr-sub{font-size:11px;color:rgba(255,255,255,.7);text-align:right;}
+.week-row{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;}
+.week-row::-webkit-scrollbar{display:none;}
+.wday{flex:none;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;color:rgba(255,255,255,.65);cursor:pointer;border:1px solid transparent;white-space:nowrap;}
+.wday.active{background:rgba(255,255,255,.25);color:#fff;border-color:rgba(255,255,255,.4);}
+.wday.has::after{content:'●';font-size:7px;margin-left:3px;vertical-align:middle;color:#9FE1CB;}
+
+.tabs{display:flex;background:var(--sf);border-bottom:1px solid var(--bd);position:sticky;top:106px;z-index:50;}
+.tab{flex:1;padding:11px 4px;font-size:12px;font-weight:500;color:var(--sub);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;}
+.tab.active{color:var(--green);border-bottom-color:var(--green);}
+.panel{display:none;}.panel.active{display:block;}
+.content{padding:14px 14px 0;max-width:640px;margin:0 auto;}
+.slabel{font-size:11px;font-weight:700;color:var(--hint);letter-spacing:.07em;margin:14px 0 7px;}
+.slabel:first-child{margin-top:0;}
+
+.chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
+.chip{padding:5px 12px;border:1px solid var(--bd2);border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;background:var(--sf);color:var(--tx);}
+.chip.g{background:var(--green);color:#fff;border-color:var(--green);}
+.chip.b{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+.dept-block{margin-bottom:6px;}
+.dept-head{display:flex;align-items:center;justify-content:space-between;background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:9px 12px;cursor:pointer;user-select:none;}
+.dept-info{display:flex;align-items:center;gap:8px;}
+.dept-name{font-size:13px;font-weight:700;}
+.dept-cnt{font-size:11px;color:var(--sub);}
+.dept-total{font-size:13px;font-weight:700;color:var(--green);}
+.dept-members{padding:6px 8px 8px;display:flex;flex-wrap:wrap;gap:6px;}
+.mchip{display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid var(--bd2);border-radius:20px;font-size:12px;cursor:pointer;background:var(--sf);color:var(--tx);}
+.mchip.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.mchip-sub{font-size:10px;opacity:.75;}
+
+.menu-imgs-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:4px;}
+.menu-imgs-row::-webkit-scrollbar{display:none;}
+.menu-img-thumb{flex:none;cursor:pointer;}
+.menu-img-thumb img{height:90px;width:auto;max-width:140px;object-fit:cover;border-radius:var(--rs);border:1px solid var(--bd);}
+
+.cat-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
+.cat-btn{padding:4px 10px;border:1px solid var(--bd);border-radius:6px;font-size:12px;cursor:pointer;background:var(--sf);color:var(--sub);}
+.cat-btn.active{background:var(--gl);color:var(--gm);border-color:var(--green);}
+
+.menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:8px;margin-bottom:14px;}
+.mcard{background:var(--sf);border:1.5px solid var(--bd);border-radius:var(--r);padding:11px;cursor:pointer;position:relative;transition:border-color .15s,transform .1s;user-select:none;}
+.mcard:active{transform:scale(.97);}
+.mcard.sel{border-color:var(--green);background:var(--gl);}
+.cat-tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:20px;background:#9FE1CB;color:var(--gd);margin-bottom:5px;font-weight:500;}
+.mcard.sel .cat-tag{background:#5DCAA5;}
+.mname{font-size:13px;font-weight:500;margin-bottom:3px;line-height:1.3;}
+.mprice{font-size:13px;color:var(--green);font-weight:700;}
+.mcard.sel .mprice{color:var(--gd);}
+.qbadge{position:absolute;top:7px;right:7px;background:var(--green);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+.rice-row{display:flex;gap:4px;margin-top:7px;flex-wrap:wrap;}
+.rice-btn{padding:3px 8px;border:1px solid var(--bd2);border-radius:20px;font-size:11px;cursor:pointer;background:rgba(255,255,255,.7);color:var(--sub);}
+.rice-btn.active{background:var(--al);color:var(--amber);border-color:var(--amber);}
+.qty-ctrl{display:flex;align-items:center;gap:5px;margin-top:6px;}
+.qty-b{width:22px;height:22px;border:1px solid var(--bd2);border-radius:5px;background:rgba(255,255,255,.7);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1;color:var(--tx);}
+
+.sum-dept{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:10px;overflow:hidden;}
+.sum-dept-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--sf2);border-bottom:1px solid var(--bd);}
+.sum-dept-title{font-size:13px;font-weight:700;}
+.sum-dept-amt{font-size:13px;font-weight:700;color:var(--green);}
+.sum-person{padding:9px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:flex-start;gap:8px;}
+.sum-person:last-child{border-bottom:none;}
+.sum-pname{font-size:12px;font-weight:600;min-width:52px;padding-top:1px;}
+.sum-pitems{flex:1;font-size:12px;color:var(--sub);line-height:1.8;}
+.sum-pamt{font-size:12px;font-weight:700;color:var(--green);white-space:nowrap;}
+.merged-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px;}
+.orow{display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--bd);gap:10px;}
+.orow:last-child{border-bottom:none;}
+.orow-name{flex:1;font-size:13px;}
+.orow-sub{font-size:12px;color:var(--sub);white-space:nowrap;}
+.total-bar{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.total-l{font-size:13px;color:var(--sub);}
+.total-cnt{font-size:11px;color:var(--hint);margin-top:2px;}
+.total-amt{font-size:26px;font-weight:700;}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.btn-p{flex:1;padding:11px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:14px;font-weight:700;cursor:pointer;min-width:100px;}
+.btn-p:active{background:var(--gm);}
+.btn-s{padding:11px 14px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--sf);color:var(--tx);font-size:14px;cursor:pointer;}
+.btn-d{padding:11px 14px;border:1px solid #F09595;border-radius:var(--rs);background:var(--sf);color:var(--red);font-size:14px;cursor:pointer;}
+
+.admin-section{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-bottom:12px;}
+.admin-section h3{font-size:13px;font-weight:700;margin-bottom:10px;}
+.add-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.add-row input,.add-row select{flex:1;min-width:80px;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:13px;background:var(--sf);color:var(--tx);}
+.add-row input:focus{outline:none;border-color:var(--green);}
+.add-row .w70{width:70px;flex:none;}
+.add-row .w80{width:80px;flex:none;}
+.btn-sm{padding:8px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:13px;cursor:pointer;background:var(--sf);color:var(--tx);white-space:nowrap;}
+.btn-sm:hover{border-color:var(--green);color:var(--green);}
+.tag-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
+.del-tag{display:flex;align-items:center;gap:4px;padding:4px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:20px;font-size:12px;}
+.del-tag button{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:0;line-height:1;}
+
+.upload-zone{border:2px dashed var(--bd2);border-radius:var(--r);padding:24px 16px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;margin-bottom:10px;position:relative;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--green);background:var(--gl);}
+.uz-icon{font-size:32px;margin-bottom:8px;}
+.uz-text{font-size:14px;font-weight:500;color:var(--tx);}
+.uz-sub{font-size:12px;color:var(--sub);margin-top:4px;}
+
+.ai-box{background:var(--pl);border:1px solid #AFA9EC;border-radius:var(--rs);padding:12px 14px;margin-bottom:10px;display:none;}
+.ai-box.show{display:block;}
+.ai-box.ok{background:var(--gl);border-color:#9FE1CB;color:var(--gd);}
+.ai-box.err{background:var(--rl);border-color:#F09595;color:#791F1F;}
+.ai-box-text{font-size:13px;color:#3C3489;margin-bottom:8px;}
+.ai-box.ok .ai-box-text{color:var(--gd);}
+.ai-box.err .ai-box-text{color:#791F1F;}
+.ai-bar{width:100%;height:5px;background:rgba(0,0,0,.08);border-radius:3px;overflow:hidden;}
+.ai-bar-fill{height:100%;background:var(--purple);border-radius:3px;transition:width .4s;width:0%;}
+
+.preview-thumb{position:relative;display:inline-block;margin:4px;}
+.preview-thumb img{width:80px;height:60px;object-fit:cover;border-radius:var(--rs);border:1px solid var(--bd);cursor:pointer;}
+.preview-thumb .rm{position:absolute;top:-5px;right:-5px;width:17px;height:17px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;}
+
+.week-schedule{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;}
+.wday-cell{background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:8px 4px;text-align:center;cursor:pointer;transition:border-color .15s;}
+.wday-cell.active{border-color:var(--green);background:var(--gl);}
+.wday-cell .wlabel{font-size:11px;font-weight:700;color:var(--sub);margin-bottom:4px;}
+.wday-cell .wrest{font-size:10px;color:var(--green);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wday-cell .wempty{font-size:10px;color:var(--hint);}
+
+.hcard{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;}
+.hcard-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+.hcard-title{font-size:13px;font-weight:600;}
+.hcard-meta{font-size:12px;color:var(--sub);margin-top:2px;}
+.hcard-detail{font-size:12px;color:var(--sub);line-height:1.7;}
+.hdel{font-size:11px;color:var(--red);cursor:pointer;border:none;background:none;padding:0;}
+.empty{padding:28px;text-align:center;font-size:13px;color:var(--hint);}
+
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:16px;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--sf);border-radius:var(--r);padding:20px;width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto;}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:14px;}
+.modal input,.modal select{width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:14px;margin-bottom:10px;background:var(--sf);color:var(--tx);}
+.modal input:focus{outline:none;border-color:var(--green);}
+.modal-btns{display:flex;gap:8px;margin-top:4px;}
+.modal-btns button{flex:1;padding:9px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;}
+
+.login-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:center;justify-content:center;padding:24px;}
+.login-overlay.open{display:flex;}
+.login-box{background:var(--sf);border-radius:var(--r);padding:28px 24px;width:100%;max-width:280px;box-shadow:0 8px 40px rgba(0,0,0,.25);text-align:center;}
+.login-icon{font-size:36px;margin-bottom:12px;}
+.login-box h2{font-size:16px;font-weight:700;margin-bottom:6px;}
+.login-box p{font-size:12px;color:var(--sub);margin-bottom:16px;}
+.login-box input{width:100%;padding:10px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:16px;text-align:center;letter-spacing:4px;margin-bottom:10px;background:var(--sf);color:var(--tx);}
+.login-box input:focus{outline:none;border-color:var(--green);}
+.login-err{font-size:12px;color:var(--red);margin-bottom:8px;min-height:16px;}
+
+.img-viewer{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:500;align-items:center;justify-content:center;padding:16px;}
+.img-viewer.open{display:flex;}
+.img-viewer img{max-width:100%;max-height:90vh;object-fit:contain;border-radius:var(--rs);}
+.img-viewer-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);color:#fff;border:none;cursor:pointer;font-size:20px;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+
+.sync-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-left:5px;vertical-align:middle;background:#9FE1CB;}
+.sync-dot.syncing{background:#ffc107;animation:pulse 1s infinite;}
+.sync-dot.off{background:#F09595;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.locked-badge{display:inline-block;background:#E6F1FB;color:#185FA5;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid #85B7EB;margin-left:6px;vertical-align:middle;}
+.mchip.locked{background:#E6F1FB;color:#185FA5;border-color:#85B7EB;cursor:default;}
+.lock-bar{background:#E6F1FB;border:1px solid #85B7EB;border-radius:var(--rs);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.lock-bar-txt{font-size:13px;color:#185FA5;font-weight:500;}
+.lock-bar-sub{font-size:11px;color:#378ADD;margin-top:2px;}
+.btn-confirm{width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;}
+.btn-confirm:active{background:var(--gm);}
+.opts-inline{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;}
+.opt-inline{padding:3px 8px;border:1px solid #9FE1CB;border-radius:20px;font-size:11px;cursor:pointer;background:var(--sf);color:#0F6E56;transition:all .15s;}
+.opt-inline:active{transform:scale(.94);}
+.opt-inline.active{background:#1D9E75;color:#E1F5EE;border-color:#1D9E75;}
+.option-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:250;align-items:flex-end;justify-content:center;padding:0;}
+.option-modal.open{display:flex;}
+.option-sheet{background:var(--sf);border-radius:var(--r) var(--r) 0 0;width:100%;max-width:480px;padding:20px 16px 32px;}
+.option-sheet-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+.option-sheet-sub{font-size:12px;color:var(--sub);margin-bottom:14px;}
+.option-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:16px;}
+.opt-btn{padding:10px 8px;border:1.5px solid var(--bd2);border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;background:var(--sf);color:var(--tx);text-align:center;transition:all .15s;}
+.opt-btn:active{transform:scale(.96);}
+.opt-btn.selected{border-color:var(--green);background:var(--gl);color:var(--gd);}
+.opt-cancel{width:100%;padding:11px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--sf);color:var(--sub);font-size:14px;cursor:pointer;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;z-index:400;box-shadow:0 4px 16px rgba(0,0,0,.2);}
+.toast.show{opacity:1;}
+@media(max-width:380px){.menu-grid{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+
+<div id="fbBanner">✅ Firebase 即時同步已設定</div>
+
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="hdr-left">
+      <h1>🍱 便當訂購 <span class="sync-dot" id="syncDot"></span></h1>
+      <span class="admin-badge" id="adminBadge" style="display:none;">管理員</span>
+    </div>
+    <div>
+      <div class="hdr-amt" id="hdrAmt">NT$0</div>
+      <div class="hdr-sub">今日合計</div>
+    </div>
+  </div>
+  <div class="week-row" id="weekRow"></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('order')">點餐</button>
+  <button class="tab" onclick="switchTab('summary')">總覽</button>
+  <button class="tab" onclick="switchTab('history')">歷史</button>
+  <button class="tab" id="adminTabBtn" style="display:none;color:var(--purple);" onclick="switchTab('admin')">⚙ 管理</button>
+</div>
+
+<!-- ORDER -->
+<div class="panel active" id="panel-order">
+  <div class="content">
+    <div class="slabel">今日餐廳</div>
+    <div class="chip-row" id="restBar"></div>
+    <div id="menuImgArea"></div>
+    <div class="slabel">點餐人員</div>
+    <div id="deptBlocks"></div>
+    <div class="slabel">菜單</div>
+    <div class="cat-row" id="catBar"></div>
+    <div class="menu-grid" id="menuGrid"></div>
+  </div>
+</div>
+
+<!-- SUMMARY -->
+<div class="panel" id="panel-summary">
+  <div class="content">
+    <div class="slabel">各部門明細</div>
+    <div id="deptSummary"></div>
+    <div class="slabel">彙整清單</div>
+    <div class="merged-card"><div id="mergedList"><div class="empty">尚未選擇餐點</div></div></div>
+    <div class="total-bar">
+      <div><div class="total-l">今日合計</div><div class="total-cnt" id="totalCnt">共 0 份</div></div>
+      <div class="total-amt" id="totalAmt">NT$0</div>
+    </div>
+    <div class="actions">
+      <button class="btn-p" onclick="copyOrder()">📋 複製訂單</button>
+      <button class="btn-s" onclick="saveHistory()">儲存歷史</button>
+      <button class="btn-d" id="clearDayBtn" style="display:none;" onclick="clearDay()">清空今天</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="panel" id="panel-history">
+  <div class="content"><div id="historyList"></div></div>
+</div>
+
+<!-- ADMIN -->
+<div class="panel" id="panel-admin">
+  <div class="content">
+
+    <div class="admin-section">
+      <h3>📅 本週店家排程</h3>
+      <div class="week-schedule" id="weekSchedule"></div>
+      <p style="font-size:11px;color:var(--hint);">點選星期格子可更換當天店家</p>
+    </div>
+
+    <div class="admin-section">
+      <h3>🏪 新增 / 匯入店家菜單</h3>
+      <div class="add-row">
+        <input id="aRestName" placeholder="店家名稱（必填）">
+        <button class="btn-sm" onclick="adminCreateRest()">建立店家</button>
+      </div>
+
+      <div class="upload-zone" id="uploadZone"
+        onclick="document.getElementById('csvFileInput').click()"
+        ondragover="dragOver(event)" ondrop="dropCsv(event)" ondragleave="dragLeave()">
+        <div class="uz-icon">📄</div>
+        <div class="uz-text">點擊或拖曳 CSV 檔案匯入菜單</div>
+        <div class="uz-sub">支援逗號或 Tab 分隔，自動偵測格式</div>
+      </div>
+      <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none" onchange="handleCsvUpload(event)">
+
+      <div class="ai-box" id="importBox">
+        <div class="ai-box-text" id="importBoxText"></div>
+      </div>
+
+      <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;margin-top:8px;">
+        <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px;">📋 CSV 格式範例（可用記事本或 Excel 編輯）</div>
+        <div style="font-size:11px;color:var(--hint);line-height:1.9;font-family:monospace;">
+          【逗號】名稱,價格,分類,主食選項<br>
+          瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵<br>
+          打拋豬飯,90,飯盒,<br>
+          雞排,60,單點,<br><br>
+          【Tab】分類→品項→價格→主食選項<br>
+          咖哩&nbsp;&nbsp;瑪莎曼咖哩&nbsp;&nbsp;90&nbsp;&nbsp;飯|麵|烏龍麵<br>
+          飯盒&nbsp;&nbsp;打拋豬飯&nbsp;&nbsp;90&nbsp;&nbsp;（留空）
+        </div>
+        <button class="btn-sm" style="margin-top:8px;font-size:12px;" onclick="downloadCsvTemplate()">⬇ 下載空白範本</button>
+      </div>
+    </div>
+
+    <div class="admin-section" id="editRestSection" style="display:none;">
+      <h3>✏️ 編輯店家：<span id="editRestNameLabel"></span></h3>
+      <div class="slabel" style="margin-top:0;">菜單圖片</div>
+      <div id="editRestImgs" style="margin-bottom:8px;"></div>
+      <button class="btn-sm" style="margin-bottom:12px;" onclick="document.getElementById('addMoreImgInput').click()">+ 補充圖片</button>
+      <input type="file" id="addMoreImgInput" accept="image/*" multiple style="display:none" onchange="handleAddMoreImg(event)">
+
+      <div class="slabel">餐點列表</div>
+      <div class="add-row">
+        <input id="aItemName" placeholder="餐點名稱">
+        <input id="aItemPrice" class="w70" placeholder="價格" type="number">
+        <select id="aItemCat" class="w80"><option>飯盒</option><option>單點</option></select>
+        <button class="btn-sm" onclick="adminAddItem()">新增</button>
+      </div>
+      <div class="add-row" style="margin-top:-4px;">
+        <input id="aItemOptions" placeholder="主食選項（用逗號分隔，例：飯,麵,烏龍麵,意麵，留空表示無選項）" style="flex:1;">
+      </div>
+      <div style="font-size:11px;color:var(--hint);margin-bottom:10px;">設定主食選項後，點餐時會彈出選單讓人選擇</div>
+      <div class="tag-list" id="aItemList"></div>
+    </div>
+
+    <div class="admin-section">
+      <h3>🏪 已儲存店家</h3>
+      <div class="tag-list" id="allRestsList"></div>
+    </div>
+
+    <div class="admin-section">
+      <h3>👥 部門與人員</h3>
+      <div class="add-row">
+        <select id="aDeptSel" style="flex:1;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:13px;background:var(--sf);color:var(--tx);">
+          <option value="">選擇部門</option>
+        </select>
+        <input id="aMemberName" placeholder="人員姓名">
+        <button class="btn-sm" onclick="adminAddMember()">新增</button>
+      </div>
+      <div class="add-row">
+        <input id="aNewDeptName" placeholder="新增部門名稱">
+        <button class="btn-sm" onclick="adminAddDept()">新增部門</button>
+      </div>
+      <div id="aDeptList"></div>
+    </div>
+
+    <div class="admin-section">
+      <h3>🔑 管理員密碼</h3>
+      <div class="add-row">
+        <input id="aNewPwd" placeholder="輸入新密碼" type="password">
+        <button class="btn-sm" onclick="adminChangePwd()">更改</button>
+      </div>
+      <button class="btn-d" style="width:100%;margin-top:4px;" onclick="adminLogout()">登出管理員</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- 主食選項 Modal -->
+<div class="option-modal" id="optionModal">
+  <div class="option-sheet">
+    <div class="option-sheet-title" id="optionTitle">請選擇主食</div>
+    <div class="option-sheet-sub" id="optionSub"></div>
+    <div class="option-grid" id="optionGrid"></div>
+    <button class="opt-cancel" onclick="closeOptionModal()">取消</button>
+  </div>
+</div>
+
+<!-- Login -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-icon">🔒</div>
+    <h2>管理員登入</h2>
+    <p>請輸入管理員密碼</p>
+    <input id="pwdInput" type="password" placeholder="密碼" maxlength="20">
+    <div class="login-err" id="loginErr"></div>
+    <button class="btn-p" style="width:100%;" onclick="doLogin()">登入</button>
+    <button class="btn-s" style="width:100%;margin-top:8px;" onclick="closeLogin()">取消</button>
+  </div>
+</div>
+
+<!-- Image viewer -->
+<div class="img-viewer" id="imgViewer">
+  <img id="imgViewerImg" src="">
+  <button class="img-viewer-close" onclick="closeImgViewer()">✕</button>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 id="modalTitle">提示</h3>
+    <div id="modalBody"></div>
+    <div class="modal-btns">
+      <button class="btn-s" onclick="closeModal()">取消</button>
+      <button class="btn-p" onclick="confirmModal()">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin btn -->
+<div style="position:fixed;bottom:20px;right:16px;z-index:50;">
+  <button onclick="tryAdminLogin()" style="width:44px;height:44px;border-radius:50%;background:var(--sf);border:1px solid var(--bd2);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12);">⚙️</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Firebase ──
+const FB = {
+  apiKey:"AIzaSyByCx2_JD_Jsw3ap1g0g3VVUleDXsG26NM",
+  authDomain:"lunch-ec49c.firebaseapp.com",
+  databaseURL:"https://lunch-ec49c-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"lunch-ec49c",
+  storageBucket:"lunch-ec49c.firebasestorage.app",
+  messagingSenderId:"555132314787",
+  appId:"1:555132314787:web:6f9a2e1932bbaab2e7cb16"
+};
+
+// ── CSV 匯入模式（已移除 AI 識別）──
+
+const DAYS=['一','二','三','四','五'];
+const DAY_KEYS=['mon','tue','wed','thu','fri'];
+const RICE=['正常','半飯','不要飯'];
+
+let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
+let curCat='全部';
+let curMember=null;
+let isAdmin=sessionStorage.getItem('isAdmin')==='1';
+let editingRid=null;
+let _modalCb=null;
+let db=null;
+
+let allRests={};       // rid->{id,name,items:[],images:[dataURL]}
+let schedule={mon:null,tue:null,wed:null,thu:null,fri:null};
+let depts=[
+  {name:'包裝部',members:['小美','小芳']},
+  {name:'印刷部',members:['小文']},
+  {name:'生產部',members:['阿明','大寶']},
+  {name:'倉儲部',members:['阿強']},
+  {name:'辦公室',members:['主管','助理']},
+];
+let orders={mon:{},tue:{},wed:{},thu:{},fri:{}};
+let lockedOrders={mon:{},tue:{},wed:{},thu:{},fri:{}}; // {dept_member: true}
+let history=JSON.parse(localStorage.getItem('lunchH7')||'[]');
+let rIdSeq=100,iIdSeq=1000;
+
+// ── Firebase init ──
+
+// Helper: find item by key (supports plain id or "id_option" format)
+function findItemByKey(items, k){
+  const baseId=String(k).split('_')[0];
+  return (items||[]).find(i=>String(i.id)===baseId);
+}
+function getOptName(o, k){
+  return (o.itemOptions&&o.itemOptions[k])||'';
+}
+function getItemLabel(item, optName){
+  return item.name+(optName?'('+optName+')':'');
+}
+function initFB(){
+  try{
+    firebase.initializeApp(FB);
+    db=firebase.database();
+    setSS('syncing');
+    db.ref('orders').on('value',s=>{
+      const v=s.val();if(v)DAY_KEYS.forEach(k=>{if(v[k])orders[k]=v[k];});
+      renderAll();
+      if(document.getElementById('panel-summary').classList.contains('active'))renderSummary();
+    });
+    db.ref('allRests').on('value',s=>{
+      const v=s.val();if(v)allRests=v;
+      renderAll();if(isAdmin)renderAdmin();
+    });
+    db.ref('schedule').on('value',s=>{
+      const v=s.val();if(v)Object.assign(schedule,v);
+      renderAll();if(isAdmin)renderAdmin();
+    });
+    db.ref('depts').on('value',s=>{
+      if(_deptsLocalPush){ _deptsLocalPush=false; return; }
+      const v=s.val();
+      if(v!=null){
+        let arr=[];
+        if(Array.isArray(v)) arr=v;
+        else if(typeof v==='object') arr=Object.values(v);
+        depts=arr.filter(d=>d&&d.name).map(d=>({name:d.name,members:Array.isArray(d.members)?d.members:(d.members?Object.values(d.members):[])}));
+      }
+      renderAll();if(isAdmin)renderAdmin();
+    });
+    db.ref('.info/connected').on('value',s=>setSS(s.val()?'ok':'off'));
+    db.ref('lockedOrders').on('value',s=>{
+      const v=s.val();
+      if(v) DAY_KEYS.forEach(dk=>{if(v[dk]) lockedOrders[dk]=v[dk];});
+      renderAll();
+    });
+  }catch(e){console.error(e);setSS('off');document.getElementById('fbBanner').className='warn';document.getElementById('fbBanner').textContent='⚠️ Firebase 連線失敗';}
+}
+function setSS(s){document.getElementById('syncDot').className='sync-dot'+(s==='syncing'?' syncing':s==='off'?' off':'');}
+function pushOrders(){if(db){setSS('syncing');db.ref('orders/'+dk()).set(orders[dk()]||{}).then(()=>setSS('ok')).catch(()=>setSS('off'));}}
+function pushRests(){if(db)db.ref('allRests').set(allRests);}
+function pushSchedule(){if(db)db.ref('schedule').set(schedule);}
+let _deptsLocalPush=false;
+function pushLocked(){
+  if(db) db.ref('lockedOrders/'+dk()).set(lockedOrders[dk()]||{});
+}
+function isLocked(dept, member){
+  return !!(lockedOrders[dk()]&&lockedOrders[dk()][dept+'__'+member]);
+}
+function lockMember(dept, member){
+  if(!lockedOrders[dk()]) lockedOrders[dk()]={};
+  lockedOrders[dk()][dept+'__'+member]=true;
+  pushLocked();
+}
+function unlockMember(dept, member){
+  if(lockedOrders[dk()]) delete lockedOrders[dk()][dept+'__'+member];
+  pushLocked();
+}
+function pushDepts(){
+  if(!db){ renderAll(); if(isAdmin) renderAdmin(); return; }
+  _deptsLocalPush=true;
+  // Store as indexed object - Firebase-safe format
+  const obj={};
+  depts.forEach((d,i)=>{
+    obj['d'+String(i).padStart(3,'0')]={
+      name:d.name,
+      members:d.members||[]
+    };
+  });
+  db.ref('depts').set(obj).catch(err=>{
+    console.error('pushDepts failed',err);
+    _deptsLocalPush=false;
+  });
+  renderAll();
+  if(isAdmin) renderAdmin();
+}
+
+// ── Helpers ──
+function dk(){return DAY_KEYS[curDayIdx];}
+function todayRest(){const rid=schedule[dk()];return rid?allRests[rid]:null;}
+function todayRid(){return schedule[dk()]||null;}
+function getPwd(){return localStorage.getItem('adminPwd')||'1234';}
+
+function getOrder(dept,member){
+  const rid=todayRid();if(!rid)return{items:{},rice:'正常'};
+  return orders[dk()]?.[rid]?.[dept]?.[member]||{items:{},rice:'正常'};
+}
+function mutOrder(dept,member,fn){
+  const rid=todayRid();if(!rid)return;
+  const d=dk();
+  if(!orders[d])orders[d]={};
+  if(!orders[d][rid])orders[d][rid]={};
+  if(!orders[d][rid][dept])orders[d][rid][dept]={};
+  if(!orders[d][rid][dept][member])orders[d][rid][dept][member]={items:{},rice:'正常'};
+  fn(orders[d][rid][dept][member]);
+  pushOrders();
+}
+function mTotal(dept,member){
+  const r=todayRest();if(!r)return 0;
+  const o=getOrder(dept,member);
+  return Object.keys(o.items||{}).reduce((s,k)=>{const it=findItemByKey(r.items,k);return s+(it?it.price*o.items[k]:0);},0);
+}
+function dayHas(idx){
+  const d=DAY_KEYS[idx],rid=schedule[d];if(!rid)return false;
+  const o=orders[d]?.[rid]||{};
+  return Object.keys(o).some(dep=>Object.keys(o[dep]||{}).some(m=>Object.keys(o[dep][m]?.items||{}).length>0));
+}
+
+// ── Render ──
+function renderAll(){renderWeek();renderRestBar();renderMenuImg();renderDepts();renderCatBar();renderMenu();updateHdr();updAdmin();}
+
+function updateHdr(){
+  let t=0;const r=todayRest();
+  if(r)depts.forEach(d=>d.members.forEach(m=>t+=mTotal(d.name,m)));
+  document.getElementById('hdrAmt').textContent='NT$'+t;
+}
+function updAdmin(){
+  document.getElementById('adminBadge').style.display=isAdmin?'':'none';
+  document.getElementById('adminTabBtn').style.display=isAdmin?'':'none';
+  document.getElementById('clearDayBtn').style.display=isAdmin?'':'none';
+}
+function renderWeek(){
+  document.getElementById('weekRow').innerHTML=DAYS.map((d,i)=>
+    `<div class="wday${i===curDayIdx?' active':''}${dayHas(i)?' has':''}" onclick="selDay(${i})">週${d}</div>`
+  ).join('');
+}
+function renderRestBar(){
+  const r=todayRest();
+  document.getElementById('restBar').innerHTML=r
+    ?`<div class="chip g">${r.name}</div><span style="font-size:12px;color:var(--sub);padding:5px 4px;">今日店家</span>`
+    :'<div style="font-size:13px;color:var(--hint);padding:4px 0;">今日尚未安排店家（請管理員設定）</div>';
+}
+function renderMenuImg(){
+  const r=todayRest();
+  const area=document.getElementById('menuImgArea');
+  if(!r||!r.images||!r.images.length){area.innerHTML='';return;}
+  area.innerHTML=`<div class="slabel">菜單圖片（點擊放大）</div>
+    <div class="menu-imgs-row">${r.images.map(img=>`<div class="menu-img-thumb" onclick="openViewer('${img}')"><img src="${img}"></div>`).join('')}</div>`;
+}
+function renderDepts(){
+  document.getElementById('deptBlocks').innerHTML=depts.map((dept,di)=>{
+    const dt=dept.members.reduce((s,m)=>s+mTotal(dept.name,m),0);
+    const mh=dept.members.map(m=>{
+      const act=curMember&&curMember.dept===dept.name&&curMember.name===m;
+      const t=mTotal(dept.name,m);
+      const has=Object.keys(getOrder(dept.name,m).items||{}).length>0;
+      const locked=isLocked(dept.name,m);
+      if(locked){
+        return `<div class="mchip locked" title="已送出訂單">${m}<span class="locked-badge">✓已送出</span></div>`;
+      }
+      return `<div class="mchip${act?' active':''}" onclick="selMember('${dept.name}','${m}')">${m}${has?`<span class="mchip-sub">NT$${t}</span>`:''}</div>`;
+    }).join('');
+    return `<div class="dept-block">
+      <div class="dept-head" onclick="toggleDept(${di})">
+        <div class="dept-info"><span class="dept-name">${dept.name}</span><span class="dept-cnt">${dept.members.length}人</span></div>
+        <span class="dept-total">${dt>0?'NT$'+dt:''}</span>
+      </div>
+      <div class="dept-members" id="dm${di}">${mh}</div>
+    </div>`;
+  }).join('');
+}
+function renderCatBar(){
+  const r=todayRest();
+  const cats=['全部',...new Set((r?.items||[]).map(i=>i.cat))];
+  document.getElementById('catBar').innerHTML=cats.map(c=>`<button class="cat-btn${c===curCat?' active':''}" onclick="selCat('${c}')">${c}</button>`).join('');
+}
+function renderMenu(){
+  const r=todayRest();
+  if(!r){document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">今日尚無菜單，請管理員設定</div>';return;}
+  if(!curMember){document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">請先在上方選擇你的名字</div>';return;}
+  // If current member is locked, show locked state
+  if(isLocked(curMember.dept,curMember.name)){
+    document.getElementById('menuGrid').innerHTML=`<div style="padding:20px;text-align:center;">
+      <div style="font-size:40px;margin-bottom:10px;">✅</div>
+      <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px;">${curMember.name} 的訂單已送出</div>
+      <div style="font-size:13px;color:var(--sub);margin-bottom:16px;">NT$${mTotal(curMember.dept,curMember.name)}</div>
+      ${isAdmin?`<button class="btn-sm" onclick="unlockMember('${curMember.dept}','${curMember.name}');renderMenu();" style="color:var(--red);border-color:#F09595;">管理員解鎖</button>`:''}
+    </div>`;
+    return;
+  }
+  const items=curCat==='全部'?r.items:r.items.filter(i=>i.cat===curCat);
+  const o=getOrder(curMember.dept,curMember.name);
+  const ro=o.rice||'正常';
+  const rid=todayRid();
+  const ro2=orders[dk()]?.[rid]||{};
+
+  document.getElementById('menuGrid').innerHTML=items.map(item=>{
+    const hasOpts=item.options&&item.options.length>0;
+    const sid=String(item.id);
+
+    // 所有人該餐點的總份數（含選項）
+    let tq=0;
+    depts.forEach(d=>d.members.forEach(m=>{
+      const mo=ro2[d.name]?.[m]?.items||{};
+      Object.keys(mo).forEach(k=>{
+        if(k===sid||k.startsWith(sid+'_')) tq+=mo[k];
+      });
+    }));
+
+    // 我的選擇
+    const myKeys=Object.keys(o.items||{}).filter(k=>k===sid||k.startsWith(sid+'_'));
+    let mq=0; myKeys.forEach(k=>mq+=o.items[k]);
+
+    let body='';
+    if(hasOpts){
+      // 選項按鈕（每個選項獨立一顆，點了就加）
+      const optBtns=item.options.map(opt=>{
+        const k=sid+'_'+opt;
+        const qty=o.items[k]||0;
+        return `<button class="opt-inline${qty>0?' active':''}" onclick="clickItemOpt(${item.id},'${opt}',event)">${opt}${qty>0?' ×'+qty:''}</button>`;
+      }).join('');
+      body+=`<div class="opts-inline">${optBtns}</div>`;
+      // 已選的選項顯示 +/- 控制
+      myKeys.forEach(k=>{
+        const optName=k.slice(sid.length+1);
+        const qty=o.items[k];
+        body+=`<div class="qty-ctrl" style="margin-top:4px;">
+          <span style="font-size:11px;color:var(--gd);flex:1;">${optName}</span>
+          <button class="qty-b" onclick="chQty('${k}',-1,event)">−</button>
+          <span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${qty}</span>
+          <button class="qty-b" onclick="chQty('${k}',1,event)">+</button>
+        </div>`;
+      });
+    } else {
+      // 一般餐點：飯量選項 + 數量控制
+      const rh=mq>0?`<div class="rice-row">${RICE.map(rv=>`<button class="rice-btn${ro===rv?' active':''}" onclick="setRice('${rv}',event)">${rv}</button>`).join('')}</div>`:'';
+      const qh=mq>0?`<div class="qty-ctrl">
+        <button class="qty-b" onclick="chQty('${sid}',-1,event)">−</button>
+        <span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${mq}</span>
+        <button class="qty-b" onclick="chQty('${sid}',1,event)">+</button>
+      </div>`:'';
+      body=qh+rh;
+    }
+
+    return `<div class="mcard${mq>0?' sel':''}" onclick="${hasOpts?'void(0)':'clickItem('+item.id+')'}">
+      ${tq>0?`<div class="qbadge">${tq}</div>`:''}
+      <div class="cat-tag">${item.cat}</div>
+      <div class="mname">${item.name}</div>
+      <div class="mprice">NT$${item.price}${mq>0&&!hasOpts?' ×'+mq:''}</div>
+      ${body}
+    </div>`;
+  }).join('');
+
+  // Add confirm button if member has items
+  const myO=getOrder(curMember.dept,curMember.name);
+  const myTotal=mTotal(curMember.dept,curMember.name);
+  if(Object.keys(myO.items||{}).length>0){
+    document.getElementById('menuGrid').innerHTML+=`
+      <div style="grid-column:1/-1;margin-top:4px;">
+        <button class="btn-confirm" onclick="confirmOrder()">✓ 確認送出（NT$${myTotal}）</button>
+      </div>`;
+  }
+}
+function confirmOrder(){
+  if(!curMember){return;}
+  const o=getOrder(curMember.dept,curMember.name);
+  if(!Object.keys(o.items||{}).length){showToast('請先點選餐點');return;}
+  const total=mTotal(curMember.dept,curMember.name);
+  if(!confirm(curMember.name+' 確認送出訂單？
+送出後無法更改
+合計：NT$'+total)){return;}
+  lockMember(curMember.dept,curMember.name);
+  curMember=null;
+  renderAll();
+  showToast('訂單已送出！');
+}
+function renderSummary(){
+  const r=todayRest();let gT=0,gC=0;let dh='';
+  depts.forEach(dept=>{
+    let dt=0;let pr='';
+    dept.members.forEach(m=>{
+      let mt=0;let mi=[];
+      const o=getOrder(dept.name,m);
+      Object.keys(o.items||{}).forEach(k=>{
+        const it=findItemByKey(r?.items,k);
+        if(it){const s=it.price*o.items[k];mt+=s;dt+=s;gT+=s;gC+=o.items[k];mi.push(it.name+'×'+o.items[k]+(o.rice!=='正常'?`(${o.rice})`:'')); }
+      });
+      if(mi.length)pr+=`<div class="sum-person"><span class="sum-pname">${m}</span><span class="sum-pitems">${mi.join('　')}</span><span class="sum-pamt">NT$${mt}</span></div>`;
+    });
+    if(pr)dh+=`<div class="sum-dept"><div class="sum-dept-head"><span class="sum-dept-title">${dept.name}</span><span class="sum-dept-amt">NT$${dt}</span></div>${pr}</div>`;
+  });
+  document.getElementById('deptSummary').innerHTML=dh||'<div class="empty">尚無訂單</div>';
+  const all={};
+  depts.forEach(d=>d.members.forEach(m=>{
+    const o=getOrder(d.name,m);
+    Object.keys(o.items||{}).forEach(k=>{
+        const it=findItemByKey(r?.items,k);
+        if(it){const optN=getOptName(o,k);const lbl=getItemLabel(it,optN);
+          if(!all[k])all[k]={name:lbl,price:it.price,qty:0};all[k].qty+=o.items[k];}});
+  }));
+  const ks=Object.keys(all);
+  document.getElementById('mergedList').innerHTML=ks.length?ks.map(k=>`<div class="orow"><span class="orow-name">${all[k].name}</span><span class="orow-sub">×${all[k].qty}　NT$${all[k].price*all[k].qty}</span></div>`).join(''):'<div class="empty">尚未選擇餐點</div>';
+  document.getElementById('totalAmt').textContent='NT$'+gT;
+  document.getElementById('totalCnt').textContent='共 '+gC+' 份';
+  document.getElementById('hdrAmt').textContent='NT$'+gT;
+}
+function renderHistory(){
+  const div=document.getElementById('historyList');
+  if(!history.length){div.innerHTML='<div class="empty">尚無歷史訂單</div>';return;}
+  div.innerHTML=[...history].reverse().map((h,i)=>`<div class="hcard">
+    <div class="hcard-head"><div><div class="hcard-title">${h.label}</div><div class="hcard-meta">共${h.count}份 · NT$${h.total} · ${h.date}</div></div>
+    <button class="hdel" onclick="delHist(${history.length-1-i})">刪除</button></div>
+    <div class="hcard-detail">${h.detail}</div></div>`).join('');
+}
+function renderAdmin(){
+  if(!isAdmin)return;
+  // week schedule
+  document.getElementById('weekSchedule').innerHTML=DAY_KEYS.map((d,i)=>{
+    const rid=schedule[d];const r=rid?allRests[rid]:null;
+    return `<div class="wday-cell${curDayIdx===i?' active':''}" onclick="openSchedModal(${i})">
+      <div class="wlabel">週${DAYS[i]}</div>
+      ${r?`<div class="wrest">${r.name}</div>`:`<div class="wempty">未設定</div>`}
+    </div>`;
+  }).join('');
+  // all rests
+  const rids=Object.keys(allRests);
+  document.getElementById('allRestsList').innerHTML=rids.length
+    ?rids.map(rid=>`<div class="del-tag" style="cursor:pointer;" onclick="openEditRest('${rid}')">✎ ${allRests[rid].name}<button onclick="event.stopPropagation();delRest('${rid}')">×</button></div>`).join('')
+    :'<span style="font-size:12px;color:var(--hint);">尚無店家</span>';
+  // edit section
+  if(editingRid&&allRests[editingRid]){
+    const r=allRests[editingRid];
+    document.getElementById('editRestSection').style.display='';
+    document.getElementById('editRestNameLabel').textContent=r.name;
+    document.getElementById('editRestImgs').innerHTML=(r.images||[]).map((img,i)=>
+      `<div class="preview-thumb"><img src="${img}" onclick="openViewer('${img}')"><button class="rm" onclick="removeImg('${editingRid}',${i})">×</button></div>`
+    ).join('');
+    document.getElementById('aItemList').innerHTML=(r.items||[]).map((it,i)=>
+      `<div class="del-tag">${it.name} NT$${it.price}(${it.cat})<button onclick="delItem('${editingRid}',${i})">×</button></div>`
+    ).join('')||'<span style="font-size:12px;color:var(--hint);">尚無餐點（上傳圖片後 AI 自動新增）</span>';
+  }else{
+    document.getElementById('editRestSection').style.display='none';
+  }
+  // depts
+  const ds=document.getElementById('aDeptSel');
+  if(ds)ds.innerHTML='<option value="">選擇部門</option>'+depts.map(d=>`<option>${d.name}</option>`).join('');
+  document.getElementById('aDeptList').innerHTML=depts.map((dept,di)=>`
+    <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:8px 10px;margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+        <span style="font-size:13px;font-weight:600;">${dept.name}</span>
+        <button onclick="delDept('${dept.name}')" style="font-size:11px;color:var(--red);border:none;background:none;cursor:pointer;">刪除部門</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        ${dept.members.map((m,mi)=>`<div class="del-tag">${m}<button onclick="delMember('${dept.name}','${m}')">×</button></div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// ── User actions ──
+function selDay(i){curDayIdx=i;curCat='全部';curMember=null;renderAll();if(isAdmin)renderAdmin();}
+function selMember(dept,name){
+  if(isLocked(dept,name)){
+    showToast(name+' 已送出訂單，無法更改');
+    return;
+  }
+  curMember={dept,name};
+  renderDepts();renderMenu();
+}
+function selCat(c){curCat=c;renderCatBar();renderMenu();}
+function toggleDept(di){const el=document.getElementById('dm'+di);el.style.display=el.style.display==='none'?'':'none';}
+
+function clickItem(id){
+  if(!curMember){showToast('請先選擇你的名字');return;}
+  addItemToOrder(id, null);
+}
+
+function clickItemOpt(id, opt, e){
+  e.stopPropagation();
+  if(!curMember){showToast('請先選擇你的名字');return;}
+  addItemToOrder(id, opt);
+}
+
+function addItemToOrder(id, option){
+  const key=option?String(id)+'_'+option:String(id);
+  mutOrder(curMember.dept,curMember.name,o=>{
+    if(!o.items) o.items={};
+    o.items[key]=(o.items[key]||0)+1;
+  });
+  renderDepts();renderMenu();updateHdr();renderWeek();
+}
+
+// 主食選項改用卡片內選項按鈕，不再彈出視窗
+function closeOptionModal(){ document.getElementById('optionModal').classList.remove('open'); }
+function chQty(key,d,e){
+  e.stopPropagation();if(!curMember)return;
+  mutOrder(curMember.dept,curMember.name,o=>{
+    const nv=Math.max(0,(o.items[key]||0)+d);
+    if(nv===0){
+      delete o.items[key];
+      if(o.itemOptions) delete o.itemOptions[key];
+    } else o.items[key]=nv;
+  });
+  renderDepts();renderMenu();updateHdr();renderWeek();
+}
+function setRice(opt,e){
+  e.stopPropagation();if(!curMember)return;
+  mutOrder(curMember.dept,curMember.name,o=>{o.rice=opt;});renderMenu();
+}
+function clearDay(){
+  if(!confirm('確定清空今天所有訂單（含所有人的送出狀態）？'))return;
+  const rid=todayRid();if(rid&&orders[dk()])delete orders[dk()][rid];
+  lockedOrders[dk()]={};
+  pushOrders();pushLocked();renderAll();renderSummary();showToast('已清空');
+}
+function copyOrder(){
+  const r=todayRest();
+  let lines=[`【便當訂單 週${DAYS[curDayIdx]}${r?' · '+r.name:''}】`];
+  let total=0,cnt=0;
+  depts.forEach(dept=>{
+    let dl=[];
+    dept.members.forEach(m=>{
+      let mi=[],mt=0;
+      const o=getOrder(dept.name,m);
+      Object.keys(o.items||{}).forEach(k=>{const it=findItemByKey(r?.items,k);if(it){mt+=it.price*o.items[k];cnt+=o.items[k];const optN=getOptName(o,k);mi.push(getItemLabel(it,optN)+'×'+o.items[k]+(o.rice!=='正常'?'('+o.rice+')':''));}});
+      if(mi.length){total+=mt;dl.push(`  ${m}：${mi.join('、')}（NT$${mt}）`);}
+    });
+    if(dl.length){lines.push(`▸ ${dept.name}`);lines.push(...dl);}
+  });
+  lines.push('─'.repeat(22));lines.push(`合計：${cnt} 份　NT$${total}`);
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('已複製！貼到 Line'));
+}
+function saveHistory(){
+  const r=todayRest();let total=0,cnt=0,items=[];
+  depts.forEach(d=>d.members.forEach(m=>{
+    const o=getOrder(d.name,m);
+    Object.keys(o.items||{}).forEach(k=>{const it=findItemByKey(r?.items,k);
+        if(it){total+=it.price*o.items[k];cnt+=o.items[k];
+          const optN=getOptName(o,k);items.push(getItemLabel(it,optN)+'×'+o.items[k]);}});
+  }));
+  if(!cnt){showToast('訂單是空的');return;}
+  const now=new Date();
+  history.push({label:`週${DAYS[curDayIdx]} ${r?.name||''}`,total,count:cnt,detail:items.join('、'),date:`${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`});
+  localStorage.setItem('lunchH7',JSON.stringify(history));showToast('已儲存歷史');
+}
+function delHist(i){history.splice(i,1);localStorage.setItem('lunchH7',JSON.stringify(history));renderHistory();}
+
+// ── Admin actions ──
+function openSchedModal(di){
+  const rids=Object.keys(allRests);
+  if(!rids.length){showToast('請先新增店家');return;}
+  document.getElementById('modalTitle').textContent='設定週'+DAYS[di]+'的店家';
+  document.getElementById('modalBody').innerHTML=`<select id="schedSel" style="width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:14px;margin-bottom:10px;background:var(--sf);color:var(--tx);">
+    <option value="">（不安排）</option>
+    ${rids.map(rid=>`<option value="${rid}"${schedule[DAY_KEYS[di]]===rid?' selected':''}>${allRests[rid].name}</option>`).join('')}
+  </select>`;
+  _modalCb=()=>{
+    const v=document.getElementById('schedSel').value;
+    schedule[DAY_KEYS[di]]=v||null;pushSchedule();
+    if(di===curDayIdx)renderAll();
+    renderAdmin();showToast('已設定週'+DAYS[di]);return true;
+  };
+  document.getElementById('modalBg').classList.add('open');
+}
+
+function openEditRest(rid){
+  editingRid=rid;renderAdmin();
+  document.getElementById('editRestSection').scrollIntoView({behavior:'smooth'});
+}
+
+function adminCreateRest(){
+  const name=document.getElementById('aRestName').value.trim();
+  if(!name){showToast('請輸入店家名稱');return;}
+  const rid='r'+rIdSeq++;
+  allRests[rid]={id:rid,name,items:[],images:[]};
+  pushRests();document.getElementById('aRestName').value='';
+  editingRid=rid;renderAdmin();showToast('已建立店家：'+name);
+}
+function delRest(rid){
+  if(!confirm(`確定刪除「${allRests[rid]?.name}」？`))return;
+  delete allRests[rid];
+  DAY_KEYS.forEach(d=>{if(schedule[d]===rid)schedule[d]=null;});
+  pushRests();pushSchedule();if(editingRid===rid)editingRid=null;
+  renderAll();renderAdmin();showToast('已刪除');
+}
+function adminAddItem(){
+  const name=document.getElementById('aItemName').value.trim();
+  const price=parseInt(document.getElementById('aItemPrice').value);
+  const cat=document.getElementById('aItemCat').value;
+  const optStr=document.getElementById('aItemOptions').value.trim();
+  if(!name||isNaN(price)||price<=0){showToast('請輸入名稱與價格');return;}
+  if(!editingRid){showToast('請先選擇店家');return;}
+  if(!allRests[editingRid].items)allRests[editingRid].items=[];
+  const item={id:iIdSeq++,name,price,cat};
+  if(optStr){
+    item.options=optStr.split(/[,，]/).map(o=>o.trim()).filter(Boolean);
+  }
+  allRests[editingRid].items.push(item);
+  pushRests();
+  document.getElementById('aItemName').value='';
+  document.getElementById('aItemPrice').value='';
+  document.getElementById('aItemOptions').value='';
+  renderCatBar();renderMenu();renderAdmin();showToast('已新增 '+name+(item.options?'（'+item.options.length+'個選項）':''));
+}
+function delItem(rid,i){allRests[rid].items.splice(i,1);pushRests();renderMenu();renderAdmin();showToast('已刪除');}
+function removeImg(rid,i){allRests[rid].images.splice(i,1);pushRests();renderMenuImg();renderAdmin();showToast('已移除');}
+
+function adminAddDept(){
+  const name=document.getElementById('aNewDeptName').value.trim();
+  if(!name){showToast('請輸入部門名稱');return;}
+  if(depts.find(d=>d.name===name)){showToast('部門已存在');return;}
+  depts.push({name,members:[]});
+  document.getElementById('aNewDeptName').value='';
+  pushDepts();
+  showToast('已新增部門：'+name);
+}
+function delDept(deptName){
+  if(!confirm('確定刪除「'+deptName+'」部門？'))return;
+  const idx=depts.findIndex(d=>d.name===deptName);
+  if(idx<0){showToast('找不到部門');return;}
+  depts.splice(idx,1);
+  pushDepts();
+  showToast('已刪除部門：'+deptName);
+}
+function adminAddMember(){
+  const dn=document.getElementById('aDeptSel').value;
+  const name=document.getElementById('aMemberName').value.trim();
+  if(!dn){showToast('請選擇部門');return;}
+  if(!name){showToast('請輸入人員姓名');return;}
+  const dept=depts.find(d=>d.name===dn);
+  if(!dept){showToast('找不到部門');return;}
+  if(!dept.members) dept.members=[];
+  if(dept.members.includes(name)){showToast('人員已存在');return;}
+  dept.members.push(name);
+  document.getElementById('aMemberName').value='';
+  pushDepts();
+  showToast('已新增 '+dn+'－'+name);
+}
+function delMember(deptName,memberName){
+  const dept=depts.find(d=>d.name===deptName);
+  if(!dept){showToast('找不到部門');return;}
+  dept.members=(dept.members||[]).filter(m=>m!==memberName);
+  pushDepts();
+  showToast('已刪除：'+memberName);
+}
+function adminChangePwd(){
+  const p=document.getElementById('aNewPwd').value.trim();
+  if(!p){showToast('請輸入密碼');return;}
+  localStorage.setItem('adminPwd',p);document.getElementById('aNewPwd').value='';showToast('密碼已更新');
+}
+function adminLogout(){isAdmin=false;sessionStorage.removeItem('isAdmin');updAdmin();switchTab('order');showToast('已登出');}
+
+// ── CSV 匯入菜單 ──
+function toDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(file);});}
+function dragOver(e){e.preventDefault();document.getElementById('uploadZone').classList.add('drag');}
+function dragLeave(){document.getElementById('uploadZone').classList.remove('drag');}
+function dropCsv(e){e.preventDefault();dragLeave();const f=e.dataTransfer.files[0];if(f)processCsv(f);}
+function handleCsvUpload(e){const f=e.target.files[0];if(f)processCsv(f);e.target.value='';}
+
+function handleAddMoreImg(e){
+  if(!editingRid){showToast('請先選擇店家');return;}
+  [...e.target.files].forEach(async f=>{
+    const du=await toDataURL(f);
+    if(!allRests[editingRid].images)allRests[editingRid].images=[];
+    allRests[editingRid].images.push(du);
+    pushRests();renderMenuImg();renderAdmin();
+  });
+  e.target.value='';
+}
+
+function processCsv(file){
+  const box=document.getElementById('importBox');
+  const txt=document.getElementById('importBoxText');
+
+  if(!editingRid || !allRests[editingRid]){
+    box.className='ai-box show err';
+    txt.textContent='❌ 請先輸入店家名稱並點「建立店家」，再上傳 CSV';
+    setTimeout(()=>box.className='ai-box',5000);
+    return;
+  }
+
+  box.className='ai-box show';
+  txt.textContent='📄 讀取檔案中...';
+
+  function parseAndImport(text){
+    try{
+      const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l&&!l.startsWith('#'));
+      const newItems=[];
+      const errors=[];
+
+      const firstLine=lines[0]||'';
+      const isTab=firstLine.includes('\t');
+      const sep=isTab?'\t':',';
+
+      // Detect and skip header row
+      const headerParts=firstLine.split(sep).map(p=>p.trim());
+      const priceCol=isTab?headerParts[2]:headerParts[1];
+      const startIdx=(isNaN(Number((priceCol||'').replace(/[^0-9.]/g,'')))||!priceCol)?1:0;
+
+      lines.slice(startIdx).forEach((line,idx)=>{
+        if(!line) return;
+        const parts=line.split(sep).map(p=>p.trim());
+        let name,price,cat,optStr='';
+        if(isTab && parts.length>=3){
+          cat=parts[0]; name=parts[1];
+          price=Math.round(Number(parts[2].replace(/[^0-9.]/g,'')));
+          optStr=parts[3]||'';
+        } else if(!isTab && parts.length>=2){
+          name=parts[0];
+          price=Math.round(Number(parts[1].replace(/[^0-9.]/g,'')));
+          cat=parts[2]||'飯盒';
+          optStr=parts[3]||'';
+        } else {
+          errors.push('第'+(startIdx+idx+1)+'行格式錯誤'); return;
+        }
+        if(!name){return;}
+        if(isNaN(price)||price<=0){errors.push('第'+(startIdx+idx+1)+'行價格無效');return;}
+        const fullName=(isTab&&cat&&cat!==name)?name+'('+cat+')':name;
+        const item={id:iIdSeq++,name:fullName,price,cat:cat||'飯盒'};
+        if(optStr){
+          const opts=optStr.split('|').map(o=>o.trim()).filter(Boolean);
+          if(opts.length) item.options=opts;
+        }
+        newItems.push(item);
+      });
+
+      if(!newItems.length){
+        box.className='ai-box show err';
+        txt.textContent='❌ 沒有讀到有效資料。'+(errors.length?errors[0]:'請確認格式');
+        setTimeout(()=>box.className='ai-box',6000);
+        return;
+      }
+
+      if(!allRests[editingRid].items) allRests[editingRid].items=[];
+      newItems.forEach(ni=>{
+        const exist=allRests[editingRid].items.findIndex(i=>i.name===ni.name);
+        if(exist>=0) allRests[editingRid].items[exist]=ni;
+        else allRests[editingRid].items.push(ni);
+      });
+
+      pushRests(); renderCatBar(); renderMenu(); renderAdmin();
+      box.className='ai-box show ok';
+      const errMsg=errors.length?' ('+errors.length+'行略過)':'';
+      txt.textContent='✅ 成功匯入 '+newItems.length+' 筆餐點'+errMsg;
+      setTimeout(()=>box.className='ai-box',5000);
+    }catch(err){
+      box.className='ai-box show err';
+      txt.textContent='❌ 解析失敗：'+err.message;
+      setTimeout(()=>box.className='ai-box',5000);
+    }
+  }
+
+  // Try encodings: UTF-8 with BOM → UTF-8 → Big5
+  function tryRead(encodings){
+    if(!encodings.length){
+      box.className='ai-box show err';
+      txt.textContent='❌ 無法讀取檔案，請另存為 UTF-8 編碼再試';
+      setTimeout(()=>box.className='ai-box',5000);
+      return;
+    }
+    const enc=encodings[0];
+    const rest=encodings.slice(1);
+    const reader=new FileReader();
+    reader.onload=e=>{
+      let text=e.target.result;
+      // Remove BOM if present
+      if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
+      // Check for garbled text (many replacement chars)
+      const badChars=(text.match(/\uFFFD/g)||[]).length;
+      const totalChars=text.replace(/\s/g,'').length;
+      if(badChars>0 && badChars/totalChars>0.05 && rest.length){
+        tryRead(rest); return;
+      }
+      parseAndImport(text);
+    };
+    reader.onerror=()=>tryRead(rest);
+    reader.readAsText(file, enc);
+  }
+
+  tryRead(['UTF-8','Big5','GBK']);
+}
+
+function downloadCsvTemplate(){
+  const rows=[
+    '# 格式：餐點名稱,價格,分類,主食選項（主食選項用 | 分隔，無選項留空）',
+    '# 範例：',
+    '瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵|油麵',
+    '鮮嫩腿排飯,80,飯盒,',
+    '打拋豬飯,90,飯盒,',
+    '雞排(單點),60,單點,',
+    '滷蛋,15,單點,',
+  ];
+  const bom='\uFEFF';
+  const blob=new Blob([bom+rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='菜單範本.csv';
+  a.click();
+}
+
+// ── Image viewer ──
+function openViewer(src){document.getElementById('imgViewerImg').src=src;document.getElementById('imgViewer').classList.add('open');}
+function closeImgViewer(){document.getElementById('imgViewer').classList.remove('open');}
+
+// ── Login ──
+function tryAdminLogin(){if(isAdmin){switchTab('admin');return;}document.getElementById('loginOverlay').classList.add('open');document.getElementById('pwdInput').value='';document.getElementById('loginErr').textContent='';setTimeout(()=>document.getElementById('pwdInput').focus(),80);}
+function doLogin(){
+  if(document.getElementById('pwdInput').value===getPwd()){
+    isAdmin=true;sessionStorage.setItem('isAdmin','1');
+    document.getElementById('loginOverlay').classList.remove('open');
+    updAdmin();renderAdmin();switchTab('admin');showToast('管理員已登入');
+  }else{document.getElementById('loginErr').textContent='密碼錯誤';document.getElementById('pwdInput').value='';document.getElementById('pwdInput').focus();}
+}
+function closeLogin(){document.getElementById('loginOverlay').classList.remove('open');}
+document.getElementById('pwdInput').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+// ── Modal ──
+function closeModal(){document.getElementById('modalBg').classList.remove('open');_modalCb=null;}
+function confirmModal(){if(_modalCb){if(_modalCb()!==false)closeModal();}else closeModal();}
+document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===document.getElementById('modalBg'))closeModal();});
+
+// ── Tabs ──
+function switchTab(t){
+  const ns=['order','summary','history','admin'];
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',ns[i]===t));
+  document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
+  document.getElementById('panel-'+t).classList.add('active');
+  if(t==='summary')renderSummary();
+  if(t==='history')renderHistory();
+  if(t==='admin')renderAdmin();
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+initFB();
+// 不自動補預設資料，由管理員手動新增
+</script>
+</body>
+</html>
