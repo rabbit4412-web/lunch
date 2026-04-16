@@ -471,7 +471,10 @@ function findItemByKey(items, k){
   return (items||[]).find(i=>String(i.id)===baseId);
 }
 function getOptName(o, k){
-  return (o.itemOptions&&o.itemOptions[k])||'';
+  // Option is encoded in the key: "itemId_optionName"
+  const parts=String(k).split('_');
+  if(parts.length>1) return parts.slice(1).join('_');
+  return '';
 }
 function getItemLabel(item, optName){
   return item.name+(optName?'('+optName+')':'');
@@ -758,6 +761,12 @@ function renderSummary(){
     if(rice&&rice!=='正常') label+=' | '+rice;
     return label;
   }
+  function buildLabelGlobal(item, optName, rice){
+    let label=item.name;
+    if(optName) label+=' | '+optName;
+    if(rice&&rice!=='正常') label+=' | '+rice;
+    return label;
+  }
 
   // ── 各部門明細 ──
   depts.forEach(dept=>{
@@ -770,6 +779,7 @@ function renderSummary(){
         const it=findItemByKey(r?.items,k);
         if(it){
           const optN=getOptName(o,k);
+          console.log('key:',k,'optN:',optN,'rice:',rice,'item:',it.name);
           const s=it.price*o.items[k];
           mt+=s;dt+=s;gT+=s;gC+=o.items[k];
           const label=buildLabel(it,optN,rice);
@@ -799,7 +809,7 @@ function renderSummary(){
       const it=findItemByKey(r?.items,k);
       if(it){
         const optN=getOptName(o,k);
-        const label=buildLabel(it,optN,rice);
+        const label=buildLabelGlobal(it,optN,rice);
         if(!all[label]) all[label]={label,price:it.price,qty:0};
         all[label].qty+=o.items[k];
       }
