@@ -288,12 +288,26 @@ button,input,select{font-family:inherit;}
     </div>
 
     <div class="admin-section">
-      <h3>🏪 新增店家 + 匯入菜單</h3>
-      <p style="font-size:12px;color:var(--sub);margin-bottom:10px;">輸入店家名稱 → 建立 → 上傳 CSV → 再重複新增下一家</p>
-
+      <h3>🏪 步驟一：新增店家</h3>
       <div class="add-row">
         <input id="aRestName" placeholder="店家名稱（必填）">
-        <button class="btn-sm" onclick="adminCreateAndUpload()">建立並上傳菜單</button>
+        <button class="btn-sm" onclick="adminCreateRest()">建立店家</button>
+      </div>
+      <div style="font-size:12px;color:var(--sub);">建立後在下方「已儲存店家」選該店家，再上傳 CSV</div>
+    </div>
+
+    <div class="admin-section">
+      <h3>🏪 步驟二：選店家並匯入菜單</h3>
+      <div class="slabel" style="margin-top:0;">選擇要匯入的店家</div>
+      <div class="chip-row" id="importRestSelect"></div>
+      <div id="importTargetLabel" style="font-size:13px;color:var(--sub);margin-bottom:10px;min-height:20px;"></div>
+
+      <div class="upload-zone" id="uploadZone"
+        onclick="document.getElementById('csvFileInput').click()"
+        ondragover="dragOver(event)" ondrop="dropCsv(event)" ondragleave="dragLeave()">
+        <div class="uz-icon">📄</div>
+        <div class="uz-text">點擊或拖曳 CSV 檔案匯入菜單</div>
+        <div class="uz-sub">支援逗號或 Tab 分隔，自動偵測格式</div>
       </div>
       <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none" onchange="handleCsvUpload(event)">
 
@@ -302,13 +316,11 @@ button,input,select{font-family:inherit;}
       </div>
 
       <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;margin-top:8px;">
-        <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px;">📋 CSV 格式（可用記事本或 Excel 編輯）</div>
+        <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px;">📋 CSV 格式</div>
         <div style="font-size:11px;color:var(--hint);line-height:1.9;font-family:monospace;">
-          【逗號】名稱,價格,分類,主食選項<br>
+          名稱,價格,分類,主食選項（用|分隔）<br>
           瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵<br>
-          打拋豬飯,90,飯盒,<br><br>
-          【Tab】分類→品項→價格→主食選項<br>
-          咖哩&nbsp;&nbsp;瑪莎曼咖哩&nbsp;&nbsp;90&nbsp;&nbsp;飯|麵|烏龍麵
+          打拋豬飯,90,飯盒,
         </div>
         <button class="btn-sm" style="margin-top:8px;font-size:12px;" onclick="downloadCsvTemplate()">⬇ 下載空白範本</button>
       </div>
@@ -443,6 +455,12 @@ let curCat='全部';
 let curMember=null;
 let isAdmin=sessionStorage.getItem('isAdmin')==='1';
 let editingRid=null;
+let importTargetRid=null; // 專門給 CSV 匯入用，與 editingRid 分開
+
+function selectImportTarget(rid){
+  importTargetRid=rid;
+  renderAdmin();
+}
 let _modalCb=null;
 let db=null;
 
@@ -846,6 +864,20 @@ function renderAdmin(){
   }).join('');
   // all rests
   const rids=Object.keys(allRests);
+  // Import target selector
+  const importSel=document.getElementById('importRestSelect');
+  if(importSel){
+    importSel.innerHTML=rids.length
+      ?rids.map(rid=>`<div class="chip${rid===importTargetRid?' g':''}" onclick="selectImportTarget('${rid}')">${allRests[rid].name}</div>`).join('')
+      :'<span style="font-size:12px;color:var(--hint);">尚無店家，請先建立</span>';
+  }
+  const lbl=document.getElementById('importTargetLabel');
+  if(lbl){
+    lbl.textContent=importTargetRid&&allRests[importTargetRid]
+      ?'目前選擇：'+allRests[importTargetRid].name+' （上傳 CSV 將匯入此店家）'
+      :'← 請先點選上方店家';
+    lbl.style.color=importTargetRid?'var(--green)':'var(--red)';
+  }
   document.getElementById('allRestsList').innerHTML=rids.length
     ?rids.map(rid=>`<div class="del-tag" style="cursor:pointer;" onclick="openEditRest('${rid}')">✎ ${allRests[rid].name}<button onclick="event.stopPropagation();delRest('${rid}')">×</button></div>`).join('')
     :'<span style="font-size:12px;color:var(--hint);">尚無店家</span>';
@@ -1155,9 +1187,11 @@ function processCsv(file, box, txt){
   if(!box) box=document.getElementById('importBox');
   if(!txt) txt=document.getElementById('importBoxText');
 
-  if(!editingRid || !allRests[editingRid]){
+  // Use importTargetRid for CSV upload target
+  const targetRid=importTargetRid||editingRid;
+  if(!targetRid || !allRests[targetRid]){
     box.className='ai-box show err';
-    txt.textContent='❌ 請先輸入店家名稱並點「建立店家」，再上傳 CSV';
+    txt.textContent='❌ 請先在「步驟二」選擇要匯入的店家';
     setTimeout(()=>box.className='ai-box',5000);
     return;
   }
@@ -1221,7 +1255,7 @@ function processCsv(file, box, txt){
         else allRests[editingRid].items.push(ni);
       });
 
-      pushRests(); renderCatBar(); renderMenu(); renderAdmin();
+      editingRid=targetRid; pushRests(); renderCatBar(); renderMenu(); renderAdmin();
       box.className='ai-box show ok';
       const errMsg=errors.length?' ('+errors.length+'行略過)':'';
       txt.textContent='✅ 成功匯入 '+newItems.length+' 筆餐點'+errMsg;
