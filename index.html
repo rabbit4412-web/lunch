@@ -505,7 +505,14 @@ function initFB(){
       if(document.getElementById('panel-summary').classList.contains('active'))renderSummary();
     });
     db.ref('allRests').on('value',s=>{
-      const v=s.val();if(v)allRests=v;
+      const v=s.val();if(v){
+        allRests=v;
+        // Recalculate rIdSeq to avoid id collision
+        const maxId=Object.keys(allRests)
+          .map(k=>parseInt(k.replace('r',''))||0)
+          .reduce((a,b)=>Math.max(a,b),99);
+        rIdSeq=maxId+1;
+      }
       renderAll();if(isAdmin)renderAdmin();
     });
     db.ref('schedule').on('value',s=>{
