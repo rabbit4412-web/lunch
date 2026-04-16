@@ -318,9 +318,10 @@ button,input,select{font-family:inherit;}
       <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;margin-top:8px;">
         <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px;">📋 CSV 格式</div>
         <div style="font-size:11px;color:var(--hint);line-height:1.9;font-family:monospace;">
-          名稱,價格,分類,主食選項（用|分隔）<br>
-          瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵<br>
-          打拋豬飯,90,飯盒,
+          名稱,價格,分類,主食選項,飯量選項<br>
+          瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵,正常|半飯|不要飯<br>
+          雞腿飯,120,飯盒,,正常|半飯|不要飯<br>
+          雞排,60,單點,,
         </div>
         <button class="btn-sm" style="margin-top:8px;font-size:12px;" onclick="downloadCsvTemplate()">⬇ 下載空白範本</button>
       </div>
@@ -346,9 +347,12 @@ button,input,select{font-family:inherit;}
         <button class="btn-sm" onclick="adminAddItem()">新增</button>
       </div>
       <div class="add-row" style="margin-top:-4px;">
-        <input id="aItemOptions" placeholder="主食選項（用逗號分隔，例：飯,麵,烏龍麵,意麵，留空表示無選項）" style="flex:1;">
+        <input id="aItemOptions" placeholder="主食選項（飯|麵|烏龍麵，留空表示無）" style="flex:1;">
       </div>
-      <div style="font-size:11px;color:var(--hint);margin-bottom:10px;">設定主食選項後，點餐時會彈出選單讓人選擇</div>
+      <div class="add-row" style="margin-top:-4px;">
+        <input id="aItemRiceOptions" placeholder="飯量選項（正常|半飯|不要飯，留空表示不詢問飯量）" style="flex:1;">
+      </div>
+      <div style="font-size:11px;color:var(--hint);margin-bottom:10px;">主食選項和飯量選項都是可選的，留空就不會詢問</div>
       <div class="tag-list" id="aItemList"></div>
     </div>
 
@@ -734,7 +738,8 @@ function renderMenu(){
       });
     } else {
       // 一般餐點：飯量選項 + 數量控制
-      const rh=mq>0?`<div class="rice-row">${RICE.map(rv=>`<button class="rice-btn${ro===rv?' active':''}" onclick="setRice('${rv}',event)">${rv}</button>`).join('')}</div>`:'';
+      const itemRices=item.riceOptions||(item.hasRice?['正常','半飯','不要飯']:null);
+      const rh=mq>0&&itemRices?`<div class="rice-row">${itemRices.map(rv=>`<button class="rice-btn${ro===rv?' active':''}" onclick="setRice('${rv}',event)">${rv}</button>`).join('')}</div>`:'';
       const qh=mq>0?`<div class="qty-ctrl">
         <button class="qty-b" onclick="chQty('${sid}',-1,event)">−</button>
         <span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${mq}</span>
@@ -780,7 +785,9 @@ function renderSummary(){
   function buildLabel(item, optName, rice){
     let label=item.name;
     if(optName) label+=' | '+optName;
-    if(rice&&rice!=='正常') label+=' | '+rice;
+    // Only show rice if this item has riceOptions
+    const hasRice=item.riceOptions&&item.riceOptions.length>0;
+    if(hasRice&&rice&&rice!=='正常') label+=' | '+rice;
     return label;
   }
   function buildLabelGlobal(item, optName, rice){
@@ -990,7 +997,8 @@ function copyOrder(){
           mt+=it.price*o.items[k];cnt+=o.items[k];
           let lbl=it.name;
           if(optN) lbl+=' | '+optN;
-          if(rice2!=='正常') lbl+=' | '+rice2;
+          const itHasRice=it.riceOptions&&it.riceOptions.length>0;
+          if(itHasRice&&rice2!=='正常') lbl+=' | '+rice2;
           mi.push(lbl+' ×'+o.items[k]);
         }
       });
@@ -1009,7 +1017,8 @@ function copyOrder(){
         const optNC=getOptName(oC,k);
         let lbl=itC.name;
         if(optNC) lbl+=' | '+optNC;
-        if(rC!=='正常') lbl+=' | '+rC;
+        const cHasRice=itC.riceOptions&&itC.riceOptions.length>0;
+        if(cHasRice&&rC!=='正常') lbl+=' | '+rC;
         if(!allC[lbl]) allC[lbl]={qty:0,price:itC.price};
         allC[lbl].qty+=oC.items[k];
       }
@@ -1098,19 +1107,25 @@ function adminAddItem(){
   const price=parseInt(document.getElementById('aItemPrice').value);
   const cat=document.getElementById('aItemCat').value;
   const optStr=document.getElementById('aItemOptions').value.trim();
+  const riceStr=document.getElementById('aItemRiceOptions').value.trim();
   if(!name||isNaN(price)||price<=0){showToast('請輸入名稱與價格');return;}
   if(!editingRid){showToast('請先選擇店家');return;}
   if(!allRests[editingRid].items)allRests[editingRid].items=[];
   const item={id:iIdSeq++,name,price,cat};
   if(optStr){
-    item.options=optStr.split(/[,，]/).map(o=>o.trim()).filter(Boolean);
+    item.options=optStr.split(/[,，|｜]/).map(o=>o.trim()).filter(Boolean);
+  }
+  if(riceStr){
+    item.riceOptions=riceStr.split(/[,，|｜]/).map(o=>o.trim()).filter(Boolean);
   }
   allRests[editingRid].items.push(item);
   pushRests();
   document.getElementById('aItemName').value='';
   document.getElementById('aItemPrice').value='';
   document.getElementById('aItemOptions').value='';
-  renderCatBar();renderMenu();renderAdmin();showToast('已新增 '+name+(item.options?'（'+item.options.length+'個選項）':''));
+  document.getElementById('aItemRiceOptions').value='';
+  renderCatBar();renderMenu();renderAdmin();
+  showToast('已新增 '+name);
 }
 function delItem(rid,i){allRests[rid].items.splice(i,1);pushRests();renderMenu();renderAdmin();showToast('已刪除');}
 function removeImg(rid,i){allRests[rid].images.splice(i,1);pushRests();renderMenuImg();renderAdmin();showToast('已移除');}
@@ -1225,15 +1240,18 @@ function processCsv(file, box, txt){
         if(!line) return;
         const parts=line.split(sep).map(p=>p.trim());
         let name,price,cat,optStr='';
+        let riceStr='';
         if(isTab && parts.length>=3){
           cat=parts[0]; name=parts[1];
           price=Math.round(Number(parts[2].replace(/[^0-9.]/g,'')));
           optStr=parts[3]||'';
+          riceStr=parts[4]||'';
         } else if(!isTab && parts.length>=2){
           name=parts[0];
           price=Math.round(Number(parts[1].replace(/[^0-9.]/g,'')));
           cat=parts[2]||'飯盒';
           optStr=parts[3]||'';
+          riceStr=parts[4]||'';
         } else {
           errors.push('第'+(startIdx+idx+1)+'行格式錯誤'); return;
         }
@@ -1244,6 +1262,10 @@ function processCsv(file, box, txt){
         if(optStr){
           const opts=optStr.split('|').map(o=>o.trim()).filter(Boolean);
           if(opts.length) item.options=opts;
+        }
+        if(riceStr){
+          const rices=riceStr.split('|').map(o=>o.trim()).filter(Boolean);
+          if(rices.length) item.riceOptions=rices;
         }
         newItems.push(item);
       });
@@ -1306,13 +1328,15 @@ function processCsv(file, box, txt){
 
 function downloadCsvTemplate(){
   const rows=[
-    '# 格式：餐點名稱,價格,分類,主食選項（主食選項用 | 分隔，無選項留空）',
+    '# 格式：餐點名稱,價格,分類,主食選項,飯量選項',
+    '# 主食選項和飯量選項都用 | 分隔，不需要就留空',
     '# 範例：',
-    '瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵|油麵',
-    '鮮嫩腿排飯,80,飯盒,',
-    '打拋豬飯,90,飯盒,',
-    '雞排(單點),60,單點,',
-    '滷蛋,15,單點,',
+    '瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵|油麵,正常|半飯|不要飯',
+    '雞腿飯,120,飯盒,,正常|半飯|不要飯',
+    '鮮嫩腿排飯,80,飯盒,飯|麵|烏龍麵,正常|半飯|不要飯',
+    '打拋豬飯,90,飯盒,,',
+    '雞排(單點),60,單點,,',
+    '滷蛋,15,單點,,',
   ];
   const bom='\uFEFF';
   const blob=new Blob([bom+rows.join('\n')],{type:'text/csv;charset=utf-8'});
