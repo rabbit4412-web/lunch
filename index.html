@@ -750,34 +750,75 @@ function confirmOrder(){
 }
 function renderSummary(){
   const r=todayRest();let gT=0,gC=0;let dh='';
+
+  // Helper: build full label for an order item
+  function buildLabel(item, optName, rice){
+    let label=item.name;
+    if(optName) label+=' | '+optName;
+    if(rice&&rice!=='正常') label+=' | '+rice;
+    return label;
+  }
+
+  // ── 各部門明細 ──
   depts.forEach(dept=>{
     let dt=0;let pr='';
     dept.members.forEach(m=>{
       let mt=0;let mi=[];
       const o=getOrder(dept.name,m);
+      const rice=o.rice||'正常';
       Object.keys(o.items||{}).forEach(k=>{
         const it=findItemByKey(r?.items,k);
-        if(it){const s=it.price*o.items[k];mt+=s;dt+=s;gT+=s;gC+=o.items[k];mi.push(it.name+'×'+o.items[k]+(o.rice!=='正常'?`(${o.rice})`:'')); }
+        if(it){
+          const optN=getOptName(o,k);
+          const s=it.price*o.items[k];
+          mt+=s;dt+=s;gT+=s;gC+=o.items[k];
+          const label=buildLabel(it,optN,rice);
+          mi.push(label+' ×'+o.items[k]);
+        }
       });
-      if(mi.length)pr+=`<div class="sum-person"><span class="sum-pname">${m}</span><span class="sum-pitems">${mi.join('　')}</span><span class="sum-pamt">NT$${mt}</span></div>`;
+      if(mi.length) pr+=`<div class="sum-person">
+        <span class="sum-pname">${m}</span>
+        <span class="sum-pitems">${mi.join('、')}</span>
+        <span class="sum-pamt">NT$${mt}</span>
+      </div>`;
     });
-    if(pr)dh+=`<div class="sum-dept"><div class="sum-dept-head"><span class="sum-dept-title">${dept.name}</span><span class="sum-dept-amt">NT$${dt}</span></div>${pr}</div>`;
+    if(pr) dh+=`<div class="sum-dept">
+      <div class="sum-dept-head"><span class="sum-dept-title">${dept.name}</span><span class="sum-dept-amt">NT$${dt}</span></div>
+      ${pr}
+    </div>`;
   });
   document.getElementById('deptSummary').innerHTML=dh||'<div class="empty">尚無訂單</div>';
+
+  // ── 彙整清單（相同完整組合才合併）──
+  // key = "餐點名稱 | 主食 | 飯量"，完全一樣才算同一筆
   const all={};
   depts.forEach(d=>d.members.forEach(m=>{
     const o=getOrder(d.name,m);
+    const rice=o.rice||'正常';
     Object.keys(o.items||{}).forEach(k=>{
-        const it=findItemByKey(r?.items,k);
-        if(it){const optN=getOptName(o,k);const lbl=getItemLabel(it,optN);
-          if(!all[k])all[k]={name:lbl,price:it.price,qty:0};all[k].qty+=o.items[k];}});
+      const it=findItemByKey(r?.items,k);
+      if(it){
+        const optN=getOptName(o,k);
+        const label=buildLabel(it,optN,rice);
+        if(!all[label]) all[label]={label,price:it.price,qty:0};
+        all[label].qty+=o.items[k];
+      }
+    });
   }));
-  const ks=Object.keys(all);
-  document.getElementById('mergedList').innerHTML=ks.length?ks.map(k=>`<div class="orow"><span class="orow-name">${all[k].name}</span><span class="orow-sub">×${all[k].qty}　NT$${all[k].price*all[k].qty}</span></div>`).join(''):'<div class="empty">尚未選擇餐點</div>';
+
+  const entries=Object.values(all).sort((a,b)=>a.label.localeCompare(b.label,'zh-Hant'));
+  document.getElementById('mergedList').innerHTML=entries.length
+    ? entries.map(e=>`<div class="orow">
+        <span class="orow-name" style="font-size:13px;">${e.label}</span>
+        <span class="orow-sub" style="font-size:13px;font-weight:600;">× ${e.qty}　NT$${e.price*e.qty}</span>
+      </div>`).join('')
+    : '<div class="empty">尚未選擇餐點</div>';
+
   document.getElementById('totalAmt').textContent='NT$'+gT;
   document.getElementById('totalCnt').textContent='共 '+gC+' 份';
   document.getElementById('hdrAmt').textContent='NT$'+gT;
 }
+
 function renderHistory(){
   const div=document.getElementById('historyList');
   if(!history.length){div.innerHTML='<div class="empty">尚無歷史訂單</div>';return;}
@@ -895,12 +936,46 @@ function copyOrder(){
     dept.members.forEach(m=>{
       let mi=[],mt=0;
       const o=getOrder(dept.name,m);
-      Object.keys(o.items||{}).forEach(k=>{const it=findItemByKey(r?.items,k);if(it){mt+=it.price*o.items[k];cnt+=o.items[k];const optN=getOptName(o,k);mi.push(getItemLabel(it,optN)+'×'+o.items[k]+(o.rice!=='正常'?'('+o.rice+')':''));}});
+      const rice2=o.rice||'正常';
+      Object.keys(o.items||{}).forEach(k=>{
+        const it=findItemByKey(r?.items,k);
+        if(it){
+          const optN=getOptName(o,k);
+          mt+=it.price*o.items[k];cnt+=o.items[k];
+          let lbl=it.name;
+          if(optN) lbl+=' | '+optN;
+          if(rice2!=='正常') lbl+=' | '+rice2;
+          mi.push(lbl+' ×'+o.items[k]);
+        }
+      });
       if(mi.length){total+=mt;dl.push(`  ${m}：${mi.join('、')}（NT$${mt}）`);}
     });
     if(dl.length){lines.push(`▸ ${dept.name}`);lines.push(...dl);}
   });
-  lines.push('─'.repeat(22));lines.push(`合計：${cnt} 份　NT$${total}`);
+  // 彙整清單
+  const allC={};
+  depts.forEach(d=>d.members.forEach(m=>{
+    const oC=getOrder(d.name,m);
+    const rC=oC.rice||'正常';
+    Object.keys(oC.items||{}).forEach(k=>{
+      const itC=findItemByKey(r?.items,k);
+      if(itC){
+        const optNC=getOptName(oC,k);
+        let lbl=itC.name;
+        if(optNC) lbl+=' | '+optNC;
+        if(rC!=='正常') lbl+=' | '+rC;
+        if(!allC[lbl]) allC[lbl]={qty:0,price:itC.price};
+        allC[lbl].qty+=oC.items[k];
+      }
+    });
+  }));
+  lines.push('─'.repeat(22));
+  lines.push('【彙整清單（叫飯用）】');
+  Object.entries(allC).sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant')).forEach(([lbl,v])=>{
+    lines.push('  '+lbl+' × '+v.qty+'　NT$'+(v.price*v.qty));
+  });
+  lines.push('─'.repeat(22));
+  lines.push('合計：'+cnt+' 份　NT$'+total);
   navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('已複製！貼到 Line'));
 }
 function saveHistory(){
