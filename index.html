@@ -288,18 +288,12 @@ button,input,select{font-family:inherit;}
     </div>
 
     <div class="admin-section">
-      <h3>🏪 新增 / 匯入店家菜單</h3>
+      <h3>🏪 新增店家 + 匯入菜單</h3>
+      <p style="font-size:12px;color:var(--sub);margin-bottom:10px;">輸入店家名稱 → 建立 → 上傳 CSV → 再重複新增下一家</p>
+
       <div class="add-row">
         <input id="aRestName" placeholder="店家名稱（必填）">
-        <button class="btn-sm" onclick="adminCreateRest()">建立店家</button>
-      </div>
-
-      <div class="upload-zone" id="uploadZone"
-        onclick="document.getElementById('csvFileInput').click()"
-        ondragover="dragOver(event)" ondrop="dropCsv(event)" ondragleave="dragLeave()">
-        <div class="uz-icon">📄</div>
-        <div class="uz-text">點擊或拖曳 CSV 檔案匯入菜單</div>
-        <div class="uz-sub">支援逗號或 Tab 分隔，自動偵測格式</div>
+        <button class="btn-sm" onclick="adminCreateAndUpload()">建立並上傳菜單</button>
       </div>
       <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none" onchange="handleCsvUpload(event)">
 
@@ -308,15 +302,13 @@ button,input,select{font-family:inherit;}
       </div>
 
       <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;margin-top:8px;">
-        <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px;">📋 CSV 格式範例（可用記事本或 Excel 編輯）</div>
+        <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px;">📋 CSV 格式（可用記事本或 Excel 編輯）</div>
         <div style="font-size:11px;color:var(--hint);line-height:1.9;font-family:monospace;">
           【逗號】名稱,價格,分類,主食選項<br>
           瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵<br>
-          打拋豬飯,90,飯盒,<br>
-          雞排,60,單點,<br><br>
+          打拋豬飯,90,飯盒,<br><br>
           【Tab】分類→品項→價格→主食選項<br>
-          咖哩&nbsp;&nbsp;瑪莎曼咖哩&nbsp;&nbsp;90&nbsp;&nbsp;飯|麵|烏龍麵<br>
-          飯盒&nbsp;&nbsp;打拋豬飯&nbsp;&nbsp;90&nbsp;&nbsp;（留空）
+          咖哩&nbsp;&nbsp;瑪莎曼咖哩&nbsp;&nbsp;90&nbsp;&nbsp;飯|麵|烏龍麵
         </div>
         <button class="btn-sm" style="margin-top:8px;font-size:12px;" onclick="downloadCsvTemplate()">⬇ 下載空白範本</button>
       </div>
@@ -324,9 +316,14 @@ button,input,select{font-family:inherit;}
 
     <div class="admin-section" id="editRestSection" style="display:none;">
       <h3>✏️ 編輯店家：<span id="editRestNameLabel"></span></h3>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="btn-sm" onclick="document.getElementById('reuploadCsvInput').click()" style="border-color:var(--green);color:var(--green);">↺ 重新匯入 CSV</button>
+        <button class="btn-sm" onclick="document.getElementById('addMoreImgInput').click()">+ 補充圖片</button>
+      </div>
+      <input type="file" id="reuploadCsvInput" accept=".csv,.txt" style="display:none" onchange="handleReuploadCsv(event)">
+      <div class="ai-box" id="reuploadBox" style="margin-bottom:8px;"><div class="ai-box-text" id="reuploadBoxText"></div></div>
       <div class="slabel" style="margin-top:0;">菜單圖片</div>
       <div id="editRestImgs" style="margin-bottom:8px;"></div>
-      <button class="btn-sm" style="margin-bottom:12px;" onclick="document.getElementById('addMoreImgInput').click()">+ 補充圖片</button>
       <input type="file" id="addMoreImgInput" accept="image/*" multiple style="display:none" onchange="handleAddMoreImg(event)">
 
       <div class="slabel">餐點列表</div>
@@ -1033,6 +1030,22 @@ function adminCreateRest(){
   allRests[rid]={id:rid,name,items:[],images:[]};
   pushRests();document.getElementById('aRestName').value='';
   editingRid=rid;renderAdmin();showToast('已建立店家：'+name);
+  return rid;
+}
+
+function adminCreateAndUpload(){
+  const name=document.getElementById('aRestName').value.trim();
+  if(!name){showToast('請先輸入店家名稱');return;}
+  // Create rest first
+  const rid='r'+rIdSeq++;
+  allRests[rid]={id:rid,name,items:[],images:[]};
+  pushRests();
+  document.getElementById('aRestName').value='';
+  editingRid=rid;
+  renderAdmin();
+  showToast('已建立「'+name+'」，請選擇 CSV 檔案');
+  // Trigger file picker immediately
+  document.getElementById('csvFileInput').click();
 }
 function delRest(rid){
   if(!confirm(`確定刪除「${allRests[rid]?.name}」？`))return;
@@ -1114,6 +1127,18 @@ function dragOver(e){e.preventDefault();document.getElementById('uploadZone').cl
 function dragLeave(){document.getElementById('uploadZone').classList.remove('drag');}
 function dropCsv(e){e.preventDefault();dragLeave();const f=e.dataTransfer.files[0];if(f)processCsv(f);}
 function handleCsvUpload(e){const f=e.target.files[0];if(f)processCsv(f);e.target.value='';}
+function handleReuploadCsv(e){
+  const f=e.target.files[0];
+  if(!f) return;
+  // Clear existing items before reimport
+  if(editingRid&&allRests[editingRid]){
+    if(confirm('重新匯入將清除「'+allRests[editingRid].name+'」現有餐點，確定嗎？')){
+      allRests[editingRid].items=[];
+      processCsv(f, document.getElementById('reuploadBox'), document.getElementById('reuploadBoxText'));
+    }
+  }
+  e.target.value='';
+}
 
 function handleAddMoreImg(e){
   if(!editingRid){showToast('請先選擇店家');return;}
@@ -1126,9 +1151,9 @@ function handleAddMoreImg(e){
   e.target.value='';
 }
 
-function processCsv(file){
-  const box=document.getElementById('importBox');
-  const txt=document.getElementById('importBoxText');
+function processCsv(file, box, txt){
+  if(!box) box=document.getElementById('importBox');
+  if(!txt) txt=document.getElementById('importBoxText');
 
   if(!editingRid || !allRests[editingRid]){
     box.className='ai-box show err';
