@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
+<!-- lunch-v4.1 2026-04-30 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -216,7 +217,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">✅ Firebase 即時同步已設定</div>
+<div id="fbBanner">v4.1 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -318,10 +319,11 @@ button,input,select{font-family:inherit;}
       <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;margin-top:8px;">
         <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px;">📋 CSV 格式</div>
         <div style="font-size:11px;color:var(--hint);line-height:1.9;font-family:monospace;">
-          名稱,價格,分類,主食選項,飯量選項<br>
-          瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵,正常|半飯|不要飯<br>
-          雞腿飯,120,飯盒,,正常|半飯|不要飯<br>
-          雞排,60,單點,,
+          名稱,價格,分類,主食選項,飯量選項,加點選項<br>
+          瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵,正常|半飯|不要飯,加蛋:10|加大:20<br>
+          鍋燒麵,85,鍋燒麵,,, 加麵:15|加蛋:10<br>
+          雞腿飯,120,飯盒,,正常|半飯|不要飯,<br>
+          雞排,60,單點,,,
         </div>
         <button class="btn-sm" style="margin-top:8px;font-size:12px;" onclick="downloadCsvTemplate()">⬇ 下載空白範本</button>
       </div>
@@ -352,7 +354,10 @@ button,input,select{font-family:inherit;}
       <div class="add-row" style="margin-top:-4px;">
         <input id="aItemRiceOptions" placeholder="飯量選項（正常|半飯|不要飯，留空表示不詢問飯量）" style="flex:1;">
       </div>
-      <div style="font-size:11px;color:var(--hint);margin-bottom:10px;">主食選項和飯量選項都是可選的，留空就不會詢問</div>
+      <div class="add-row" style="margin-top:-4px;">
+        <input id="aItemAddons" placeholder="加點選項（格式：名稱:加價，例：加麵:15|加蛋:10|加大:20）" style="flex:1;">
+      </div>
+      <div style="font-size:11px;color:var(--hint);margin-bottom:10px;">主食選項=互斥選一個；加點選項=可多選，每個獨立計價</div>
       <div class="tag-list" id="aItemList"></div>
     </div>
 
@@ -489,6 +494,11 @@ function findItemByKey(items, k){
   const baseId=String(k).split('_')[0];
   return (items||[]).find(i=>String(i.id)===baseId);
 }
+function isAddonKey(k){ return String(k).includes('_ADD_'); }
+function getAddonName(k){ 
+  const m=String(k).match(/_ADD_(.+)$/);
+  return m?m[1]:'';
+}
 function getOptName(o, k){
   const parts=String(k).split('_');
   if(parts.length>1) return parts.slice(1).join('_');
@@ -526,13 +536,14 @@ function initFB(){
     db.ref('allRests').on('value',s=>{
       const v=s.val();if(v){
         allRests=v;
-        // Recalculate rIdSeq to avoid id collision
         const maxId=Object.keys(allRests)
           .map(k=>parseInt(k.replace('r',''))||0)
           .reduce((a,b)=>Math.max(a,b),99);
         rIdSeq=maxId+1;
       }
       renderAll();if(isAdmin)renderAdmin();
+      // 如果在總覽分頁，重新渲染（確保資料載入後更新）
+      if(document.getElementById('panel-summary').classList.contains('active'))renderSummary();
     });
     db.ref('schedule').on('value',s=>{
       const v=s.val();if(v)Object.assign(schedule,v);
@@ -629,6 +640,12 @@ function mTotal(dept,member){
   const r=todayRest();if(!r)return 0;
   const o=getOrder(dept,member);
   return Object.keys(o.items||{}).reduce((s,k)=>{
+    if(isAddonKey(k)){
+      // addon: 加點，價格從 addon 名稱解析
+      const addonN=getAddonName(k);
+      const addonPrice=parseOptPrice(addonN);
+      return s+addonPrice*(o.items[k]||0);
+    }
     const it=findItemByKey(r.items,k);
     if(!it) return s;
     const optN=getOptName(o,k);
@@ -771,7 +788,19 @@ function renderMenu(){
         <span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${mq}</span>
         <button class="qty-b" onclick="chQty('${sid}',1,event)">+</button>
       </div>`:'';
-      body=qh+rh;
+      // 加點選項 (addons) - 獨立勾選，每個單獨計價
+      let addonHtml='';
+      if(item.addons&&item.addons.length>0){
+        const addonBtns=item.addons.map(addon=>{
+          const ak=sid+'_ADD_'+addon;
+          const aqty=o.items[ak]||0;
+          const aPrice=parseOptPrice(addon);
+          const aName=getOptDisplayName(addon);
+          return `<button class="rice-btn${aqty>0?' active':''}" style="${aqty>0?'background:var(--gl);color:var(--gm);border-color:var(--green);':''}" onclick="toggleAddon('${sid}','${addon}',event)">${aName}${aPrice>0?' +'+aPrice:''}${aqty>0?' ✓':''}</button>`;
+        }).join('');
+        addonHtml=`<div class="rice-row" style="margin-top:5px;">${addonBtns}</div>`;
+      }
+      body=qh+rh+addonHtml;
     }
 
     return `<div class="mcard${mq>0?' sel':''}" onclick="${hasOpts?'void(0)':'clickItem('+item.id+')'}">
@@ -805,7 +834,13 @@ function confirmOrder(){
   showToast('訂單已送出！');
 }
 function renderSummary(){
-  const r=todayRest();let gT=0,gC=0;let dh='';
+  const r=todayRest();
+  // 如果店家資料還沒載入，顯示載入中，不要清空已有內容
+  if(!r && Object.keys(allRests).length===0){
+    document.getElementById('deptSummary').innerHTML='<div class="empty">⏳ 載入中...</div>';
+    return;
+  }
+  let gT=0,gC=0;let dh='';
 
   // Helper: build full label for an order item
   function buildLabel(item, optName, rice){
@@ -823,14 +858,32 @@ function renderSummary(){
     return label;
   }
 
-  // ── 各部門明細 ──
+  // ── 各部門明細（只顯示已送出的人）──
+  let unlockedCount=0; // 統計未送出人數
   depts.forEach(dept=>{
     let dt=0;let pr='';
     dept.members.forEach(m=>{
+      // 只顯示已送出（locked）的人
+      if(!isLocked(dept.name,m)){
+        const o=getOrder(dept.name,m);
+        if(Object.keys(o.items||{}).length>0) unlockedCount++;
+        return;
+      }
       let mt=0;let mi=[];
       const o=getOrder(dept.name,m);
       const rice=o.rice||'正常';
       Object.keys(o.items||{}).forEach(k=>{
+        if(isAddonKey(k)){
+          const addonN=getAddonName(k);
+          const addonPrice=parseOptPrice(addonN);
+          const addonDisplayN=getOptDisplayName(addonN);
+          if(addonPrice>0){
+            const s=addonPrice*(o.items[k]||0);
+            mt+=s;dt+=s;gT+=s;
+            mi.push(addonDisplayN+' ×'+(o.items[k]||0));
+          }
+          return;
+        }
         const it=findItemByKey(r?.items,k);
         if(it){
           const optN=getOptName(o,k);
@@ -851,15 +904,32 @@ function renderSummary(){
       ${pr}
     </div>`;
   });
+  // 顯示未送出提示
+  if(unlockedCount>0){
+    dh+=`<div style="background:var(--al);border:1px solid var(--amber);border-radius:var(--rs);padding:10px 14px;margin-top:8px;font-size:12px;color:var(--amber);">
+      ⏳ 尚有 ${unlockedCount} 人未送出訂單，送出後才會顯示在總覽
+    </div>`;
+  }
   document.getElementById('deptSummary').innerHTML=dh||'<div class="empty">尚無訂單</div>';
 
-  // ── 彙整清單（相同完整組合才合併）──
-  // key = "餐點名稱 | 主食 | 飯量"，完全一樣才算同一筆
+  // ── 彙整清單（只計已送出的人）──
   const all={};
   depts.forEach(d=>d.members.forEach(m=>{
+    if(!isLocked(d.name,m)) return; // 只算已送出
     const o=getOrder(d.name,m);
     const rice=o.rice||'正常';
     Object.keys(o.items||{}).forEach(k=>{
+      if(isAddonKey(k)){
+        const addonN=getAddonName(k);
+        const addonPrice=parseOptPrice(addonN);
+        const addonDN=getOptDisplayName(addonN);
+        if(addonPrice>0){
+          const lb='+ '+addonDN;
+          if(!all[lb])all[lb]={label:lb,price:addonPrice,qty:0};
+          all[lb].qty+=(o.items[k]||0);
+        }
+        return;
+      }
       const it=findItemByKey(r?.items,k);
       if(it){
         const optN=getOptName(o,k);
@@ -999,6 +1069,19 @@ function setRice(opt,e){
   e.stopPropagation();if(!curMember)return;
   mutOrder(curMember.dept,curMember.name,o=>{o.rice=opt;});renderMenu();
 }
+function toggleAddon(sid,addon,e){
+  e.stopPropagation();if(!curMember)return;
+  const ak=sid+'_ADD_'+addon;
+  mutOrder(curMember.dept,curMember.name,o=>{
+    if(!o.items)o.items={};
+    // addon 和主餐同數量聯動：有主餐才能加
+    const baseQty=o.items[sid]||0;
+    if(baseQty===0){showToast('請先選擇主餐');return;}
+    if(o.items[ak]) delete o.items[ak];
+    else o.items[ak]=baseQty; // 加點數量 = 主餐數量
+  });
+  renderDepts();renderMenu();updateHdr();
+}
 function clearDay(){
   if(!confirm('確定清空今天所有訂單（含所有人的送出狀態）？'))return;
   const rid=todayRid();if(rid&&orders[dk()])delete orders[dk()][rid];
@@ -1012,10 +1095,17 @@ function copyOrder(){
   depts.forEach(dept=>{
     let dl=[];
     dept.members.forEach(m=>{
+      if(!isLocked(dept.name,m)) return; // 只複製已送出
       let mi=[],mt=0;
       const o=getOrder(dept.name,m);
       const rice2=o.rice||'正常';
       Object.keys(o.items||{}).forEach(k=>{
+        if(isAddonKey(k)){
+          const addonN=getAddonName(k);
+          const addonPrice=parseOptPrice(addonN);
+          if(addonPrice>0){mt+=addonPrice*(o.items[k]||0);mi.push('+'+getOptDisplayName(addonN)+' ×'+(o.items[k]||0));}
+          return;
+        }
         const it=findItemByKey(r?.items,k);
         if(it){
           const optN=getOptName(o,k);
@@ -1034,6 +1124,7 @@ function copyOrder(){
   // 彙整清單
   const allC={};
   depts.forEach(d=>d.members.forEach(m=>{
+    if(!isLocked(d.name,m)) return; // 只算已送出
     const oC=getOrder(d.name,m);
     const rC=oC.rice||'正常';
     Object.keys(oC.items||{}).forEach(k=>{
@@ -1143,12 +1234,18 @@ function adminAddItem(){
   if(riceStr){
     item.riceOptions=riceStr.split(/[,，|｜]/).map(o=>o.trim()).filter(Boolean);
   }
+  const addonStr=document.getElementById('aItemAddons')?.value.trim()||'';
+  if(addonStr){
+    const addons=addonStr.split(/[|｜]/).map(a=>a.trim()).filter(Boolean);
+    if(addons.length) item.addons=addons;
+  }
   allRests[editingRid].items.push(item);
   pushRests();
   document.getElementById('aItemName').value='';
   document.getElementById('aItemPrice').value='';
   document.getElementById('aItemOptions').value='';
   document.getElementById('aItemRiceOptions').value='';
+  const adEl=document.getElementById('aItemAddons');if(adEl)adEl.value='';
   renderCatBar();renderMenu();renderAdmin();
   showToast('已新增 '+name);
 }
@@ -1209,8 +1306,28 @@ function handleCsvUpload(e){const f=e.target.files[0];if(f)processCsv(f);e.targe
 function handleReuploadCsv(e){
   const f=e.target.files[0];
   if(!f) return;
-  // Clear existing items before reimport
   if(editingRid&&allRests[editingRid]){
+    // 防護：檢查今日是否已有訂單
+    const rid=todayRid();
+    const todayOrders=rid?orders[dk()]?.[rid]:null;
+    const hasOrders=todayOrders&&Object.keys(todayOrders).some(dept=>
+      Object.keys(todayOrders[dept]||{}).some(m=>
+        Object.keys(todayOrders[dept][m]?.items||{}).length>0
+      )
+    );
+    if(hasOrders){
+      const warnMsg=[
+        '警告：今日已有人點餐！',
+        '',
+        '重新匯入菜單後，已點餐的資料將無法在總覽顯示（item id 不符）。',
+        '',
+        '建議先點「清空今天」再匯入菜單。',
+        '',
+        '確定要繼續匯入嗎？'
+      ].join('\n');
+      const proceed=confirm(warnMsg);
+      if(!proceed){e.target.value='';return;}
+    }
     if(confirm('重新匯入將清除「'+allRests[editingRid].name+'」現有餐點，確定嗎？')){
       allRests[editingRid].items=[];
       processCsv(f, document.getElementById('reuploadBox'), document.getElementById('reuploadBoxText'));
@@ -1292,6 +1409,12 @@ function processCsv(file, box, txt){
           const rices=riceStr.split('|').map(o=>o.trim()).filter(Boolean);
           if(rices.length) item.riceOptions=rices;
         }
+        // 第6欄：加點選項 (名稱:加價|名稱:加價)
+        const addonStr2=isTab?(parts[5]||''):(parts[5]||'');
+        if(addonStr2){
+          const addons=addonStr2.split('|').map(a=>a.trim()).filter(Boolean);
+          if(addons.length) item.addons=addons;
+        }
         newItems.push(item);
       });
 
@@ -1353,15 +1476,16 @@ function processCsv(file, box, txt){
 
 function downloadCsvTemplate(){
   const rows=[
-    '# 格式：餐點名稱,價格,分類,主食選項,飯量選項',
-    '# 主食選項和飯量選項都用 | 分隔，不需要就留空',
+    '# 格式：餐點名稱,價格,分類,主食選項,飯量選項,加點選項',
+    '# 主食選項=互斥選一個；飯量選項=選飯量；加點選項=可多選額外加點(名稱:加價)',
     '# 範例：',
-    '瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵|油麵,正常|半飯|不要飯',
-    '雞腿飯,120,飯盒,,正常|半飯|不要飯',
-    '鮮嫩腿排飯,80,飯盒,飯|麵|烏龍麵,正常|半飯|不要飯',
-    '打拋豬飯,90,飯盒,,',
-    '雞排(單點),60,單點,,',
-    '滷蛋,15,單點,,',
+    '瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵|油麵,正常|半飯|不要飯,加蛋:10|加大:20',
+    '鍋燒肉燥麵,85,鍋燒麵,,,加麵:15|加蛋:10',
+    '雞腿飯,120,飯盒,,正常|半飯|不要飯,',
+    '鮮嫩腿排飯,80,飯盒,飯|麵|烏龍麵,正常|半飯|不要飯,加蛋:10',
+    '打拋豬飯,90,飯盒,,,',
+    '雞排(單點),60,單點,,,',
+    '滷蛋,15,單點,,,',
   ];
   const bom='\uFEFF';
   const blob=new Blob([bom+rows.join('\n')],{type:'text/csv;charset=utf-8'});
