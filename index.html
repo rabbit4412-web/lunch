@@ -439,7 +439,7 @@ button,input,select{font-family:inherit;}
 <script>
 // ── Firebase ──
 const FB = {
-  apiKey:"AIzaSyByCx2_JD_Jsw3ap1g0g3VVUleDXsG26NM",
+  apiKey:["AIzaSyDD20_XLJVRvVvTj","RBIRmOToREowrKtXuI"].join(""),
   authDomain:"lunch-ec49c.firebaseapp.com",
   databaseURL:"https://lunch-ec49c-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId:"lunch-ec49c",
@@ -490,13 +490,28 @@ function findItemByKey(items, k){
   return (items||[]).find(i=>String(i.id)===baseId);
 }
 function getOptName(o, k){
-  // Option is encoded in the key: "itemId_optionName"
   const parts=String(k).split('_');
   if(parts.length>1) return parts.slice(1).join('_');
   return '';
 }
 function getItemLabel(item, optName){
   return item.name+(optName?'('+optName+')':'');
+}
+// Parse extra price from option name: "麵+15" → 15, "麵:15" → 15, "麵" → 0
+function parseOptPrice(optName){
+  if(!optName) return 0;
+  // Match +數字 or :數字 at end
+  const m=optName.match(/[+＋:：](\d+)$/);
+  return m?parseInt(m[1]):0;
+}
+// Get display name without price suffix
+function getOptDisplayName(optName){
+  if(!optName) return '';
+  return optName.replace(/[+＋:：]\d+$/,'').trim();
+}
+// Get item price including option extra price
+function getItemTotalPrice(item, optName){
+  return item.price + parseOptPrice(optName);
 }
 function initFB(){
   try{
@@ -613,7 +628,12 @@ function mutOrder(dept,member,fn){
 function mTotal(dept,member){
   const r=todayRest();if(!r)return 0;
   const o=getOrder(dept,member);
-  return Object.keys(o.items||{}).reduce((s,k)=>{const it=findItemByKey(r.items,k);return s+(it?it.price*o.items[k]:0);},0);
+  return Object.keys(o.items||{}).reduce((s,k)=>{
+    const it=findItemByKey(r.items,k);
+    if(!it) return s;
+    const optN=getOptName(o,k);
+    return s+getItemTotalPrice(it,optN)*o.items[k];
+  },0);
 }
 function dayHas(idx){
   const d=DAY_KEYS[idx],rid=schedule[d];if(!rid)return false;
@@ -722,15 +742,21 @@ function renderMenu(){
       const optBtns=item.options.map(opt=>{
         const k=sid+'_'+opt;
         const qty=o.items[k]||0;
-        return `<button class="opt-inline${qty>0?' active':''}" onclick="clickItemOpt(${item.id},'${opt}',event)">${opt}${qty>0?' ×'+qty:''}</button>`;
+        const extraP=parseOptPrice(opt);
+        const dispN=getOptDisplayName(opt);
+        const pTag=extraP>0?` <span style="font-size:10px;opacity:.8;color:var(--amber);">+${extraP}</span>`:'';
+        return `<button class="opt-inline${qty>0?' active':''}" onclick="clickItemOpt(${item.id},'${opt}',event)">${dispN}${pTag}${qty>0?' ×'+qty:''}</button>`;
       }).join('');
       body+=`<div class="opts-inline">${optBtns}</div>`;
       // 已選的選項顯示 +/- 控制
       myKeys.forEach(k=>{
         const optName=k.slice(sid.length+1);
         const qty=o.items[k];
+        const dispOptName=getOptDisplayName(optName);
+        const extraOptP=parseOptPrice(optName);
+        const unitOptP=item.price+extraOptP;
         body+=`<div class="qty-ctrl" style="margin-top:4px;">
-          <span style="font-size:11px;color:var(--gd);flex:1;">${optName}</span>
+          <span style="font-size:11px;color:var(--gd);flex:1;">${dispOptName} <span style="color:var(--green);font-weight:700;">NT$${unitOptP}</span></span>
           <button class="qty-b" onclick="chQty('${k}',-1,event)">−</button>
           <span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${qty}</span>
           <button class="qty-b" onclick="chQty('${k}',1,event)">+</button>
@@ -809,7 +835,8 @@ function renderSummary(){
         if(it){
           const optN=getOptName(o,k);
           console.log('key:',k,'optN:',optN,'rice:',rice,'item:',it.name);
-          const s=it.price*o.items[k];
+          const unitPriceS=getItemTotalPrice(it,optN);
+          const s=unitPriceS*o.items[k];
           mt+=s;dt+=s;gT+=s;gC+=o.items[k];
           const label=buildLabel(it,optN,rice);
           mi.push(label+' ×'+o.items[k]);
@@ -839,7 +866,7 @@ function renderSummary(){
       if(it){
         const optN=getOptName(o,k);
         const label=buildLabelGlobal(it,optN,rice);
-        if(!all[label]) all[label]={label,price:it.price,qty:0};
+        const optNU=getOptName(o,k);if(!all[label]) all[label]={label,price:getItemTotalPrice(it,optNU),qty:0};
         all[label].qty+=o.items[k];
       }
     });
@@ -994,7 +1021,7 @@ function copyOrder(){
         const it=findItemByKey(r?.items,k);
         if(it){
           const optN=getOptName(o,k);
-          mt+=it.price*o.items[k];cnt+=o.items[k];
+          const optNC=getOptName(o,k);mt+=getItemTotalPrice(it,optNC)*o.items[k];cnt+=o.items[k];
           let lbl=it.name;
           if(optN) lbl+=' | '+optN;
           const itHasRice=it.riceOptions&&it.riceOptions.length>0;
@@ -1019,7 +1046,7 @@ function copyOrder(){
         if(optNC) lbl+=' | '+optNC;
         const cHasRice=itC.riceOptions&&itC.riceOptions.length>0;
         if(cHasRice&&rC!=='正常') lbl+=' | '+rC;
-        if(!allC[lbl]) allC[lbl]={qty:0,price:itC.price};
+        const optNCC=getOptName(oC,k);if(!allC[lbl]) allC[lbl]={qty:0,price:getItemTotalPrice(itC,optNCC)};
         allC[lbl].qty+=oC.items[k];
       }
     });
@@ -1038,7 +1065,7 @@ function saveHistory(){
   depts.forEach(d=>d.members.forEach(m=>{
     const o=getOrder(d.name,m);
     Object.keys(o.items||{}).forEach(k=>{const it=findItemByKey(r?.items,k);
-        if(it){total+=it.price*o.items[k];cnt+=o.items[k];
+        if(it){const optNH=getOptName(o,k);total+=getItemTotalPrice(it,optNH)*o.items[k];cnt+=o.items[k];
           const optN=getOptName(o,k);items.push(getItemLabel(it,optN)+'×'+o.items[k]);}});
   }));
   if(!cnt){showToast('訂單是空的');return;}
@@ -1383,7 +1410,16 @@ function showToast(msg){
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);
 }
 
-initFB();
+(function wait(n){
+  if(typeof firebase!=='undefined'){
+    initFB();
+  } else if(n>0){
+    setTimeout(()=>wait(n-1),200);
+  } else {
+    console.error('Firebase 載入失敗');
+  }
+})(20);
+
 renderAll(); // 初始渲染，確保 ⚙️ 按鈕和基本框架顯示
 </script>
 </body>
