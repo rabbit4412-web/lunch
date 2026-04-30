@@ -834,9 +834,7 @@ function renderSummary(){
         const it=findItemByKey(r?.items,k);
         if(it){
           const optN=getOptName(o,k);
-          console.log('key:',k,'optN:',optN,'rice:',rice,'item:',it.name);
-          const unitPriceS=getItemTotalPrice(it,optN);
-          const s=unitPriceS*o.items[k];
+          const s=getItemTotalPrice(it,optN)*o.items[k];
           mt+=s;dt+=s;gT+=s;gC+=o.items[k];
           const label=buildLabel(it,optN,rice);
           mi.push(label+' ×'+o.items[k]);
@@ -866,7 +864,7 @@ function renderSummary(){
       if(it){
         const optN=getOptName(o,k);
         const label=buildLabelGlobal(it,optN,rice);
-        const optNU=getOptName(o,k);if(!all[label]) all[label]={label,price:getItemTotalPrice(it,optNU),qty:0};
+        if(!all[label]) all[label]={label,price:getItemTotalPrice(it,optN),qty:0};
         all[label].qty+=o.items[k];
       }
     });
@@ -1021,7 +1019,7 @@ function copyOrder(){
         const it=findItemByKey(r?.items,k);
         if(it){
           const optN=getOptName(o,k);
-          const optNC=getOptName(o,k);mt+=getItemTotalPrice(it,optNC)*o.items[k];cnt+=o.items[k];
+          mt+=getItemTotalPrice(it,optN)*o.items[k];cnt+=o.items[k];
           let lbl=it.name;
           if(optN) lbl+=' | '+optN;
           const itHasRice=it.riceOptions&&it.riceOptions.length>0;
@@ -1065,8 +1063,8 @@ function saveHistory(){
   depts.forEach(d=>d.members.forEach(m=>{
     const o=getOrder(d.name,m);
     Object.keys(o.items||{}).forEach(k=>{const it=findItemByKey(r?.items,k);
-        if(it){const optNH=getOptName(o,k);total+=getItemTotalPrice(it,optNH)*o.items[k];cnt+=o.items[k];
-          const optN=getOptName(o,k);items.push(getItemLabel(it,optN)+'×'+o.items[k]);}});
+        if(it){const optN=getOptName(o,k);total+=getItemTotalPrice(it,optN)*o.items[k];cnt+=o.items[k];
+          items.push(getItemLabel(it,optN)+'×'+o.items[k]);}});
   }));
   if(!cnt){showToast('訂單是空的');return;}
   const now=new Date();
