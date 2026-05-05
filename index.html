@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.2 2026-05-04 -->
+<!-- lunch-v4.4 2026-05-05 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -48,10 +48,17 @@ button,input,select{font-family:inherit;}
 .slabel{font-size:11px;font-weight:700;color:var(--hint);letter-spacing:.07em;margin:14px 0 7px;}
 .slabel:first-child{margin-top:0;}
 
+/* 總覽子分頁 */
+.sum-subtabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;}
+.sum-subtabs::-webkit-scrollbar{display:none;}
+.sstab{flex:none;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid var(--bd2);background:var(--sf);color:var(--sub);cursor:pointer;white-space:nowrap;}
+.sstab.active{background:var(--green);color:#fff;border-color:var(--green);}
+.sstab.admin-only{border-color:var(--bd2);color:var(--sub);}
+.sumview{display:none;}.sumview.active{display:block;}
+
 .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
 .chip{padding:5px 12px;border:1px solid var(--bd2);border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;background:var(--sf);color:var(--tx);}
 .chip.g{background:var(--green);color:#fff;border-color:var(--green);}
-.chip.b{background:var(--blue);color:#fff;border-color:var(--blue);}
 
 .dept-block{margin-bottom:6px;}
 .dept-head{display:flex;align-items:center;justify-content:space-between;background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:9px 12px;cursor:pointer;user-select:none;}
@@ -89,16 +96,11 @@ button,input,select{font-family:inherit;}
 .qty-ctrl{display:flex;align-items:center;gap:5px;margin-top:6px;}
 .qty-b{width:22px;height:22px;border:1px solid var(--bd2);border-radius:5px;background:rgba(255,255,255,.7);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1;color:var(--tx);}
 
+/* ── 總覽 A：品項分組（管理員用）── */
 .sum-dept{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:10px;overflow:hidden;}
 .sum-dept-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--sf2);border-bottom:1px solid var(--bd);}
 .sum-dept-title{font-size:13px;font-weight:700;}
 .sum-dept-amt{font-size:13px;font-weight:700;color:var(--green);}
-.sum-person{padding:9px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:flex-start;gap:8px;}
-.sum-person:last-child{border-bottom:none;}
-.sum-pname{font-size:12px;font-weight:600;min-width:52px;padding-top:1px;}
-.sum-pitems{flex:1;font-size:12px;color:var(--sub);line-height:1.8;}
-.sum-pamt{font-size:12px;font-weight:700;color:var(--green);white-space:nowrap;}
-/* ── v4.2 新增：品項分組樣式 ── */
 .sum-item-group{border-bottom:1px solid var(--bd);}
 .sum-item-group:last-child{border-bottom:none;}
 .sum-item-label{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:var(--sf2);}
@@ -111,11 +113,21 @@ button,input,select{font-family:inherit;}
 .sum-cancel-btn{font-size:11px;color:var(--red);border:1px solid #F09595;background:var(--sf);border-radius:20px;padding:2px 8px;cursor:pointer;white-space:nowrap;margin-left:4px;}
 .sum-cancel-btn:active{background:var(--rl);}
 
+/* ── 總覽 B：個人點餐（每人一行）── */
+.sum-person-block{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:6px;overflow:hidden;}
+.spb-row{display:flex;align-items:baseline;padding:9px 14px;gap:10px;border-bottom:1px solid var(--bd);}
+.spb-row:last-child{border-bottom:none;}
+.spb-name{font-size:13px;font-weight:700;min-width:52px;flex:none;}
+.spb-items{flex:1;font-size:12px;color:var(--sub);line-height:1.8;}
+.spb-total{font-size:13px;font-weight:700;color:var(--green);white-space:nowrap;}
+
+/* ── 總覽 C：彙整清單 ── */
 .merged-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px;}
 .orow{display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--bd);gap:10px;}
 .orow:last-child{border-bottom:none;}
 .orow-name{flex:1;font-size:13px;}
 .orow-sub{font-size:12px;color:var(--sub);white-space:nowrap;}
+
 .total-bar{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
 .total-l{font-size:13px;color:var(--sub);}
 .total-cnt{font-size:11px;color:var(--hint);margin-top:2px;}
@@ -149,11 +161,9 @@ button,input,select{font-family:inherit;}
 .ai-box.show{display:block;}
 .ai-box.ok{background:var(--gl);border-color:#9FE1CB;color:var(--gd);}
 .ai-box.err{background:var(--rl);border-color:#F09595;color:#791F1F;}
-.ai-box-text{font-size:13px;color:#3C3489;margin-bottom:8px;}
+.ai-box-text{font-size:13px;color:#3C3489;}
 .ai-box.ok .ai-box-text{color:var(--gd);}
 .ai-box.err .ai-box-text{color:#791F1F;}
-.ai-bar{width:100%;height:5px;background:rgba(0,0,0,.08);border-radius:3px;overflow:hidden;}
-.ai-bar-fill{height:100%;background:var(--purple);border-radius:3px;transition:width .4s;width:0%;}
 
 .preview-thumb{position:relative;display:inline-block;margin:4px;}
 .preview-thumb img{width:80px;height:60px;object-fit:cover;border-radius:var(--rs);border:1px solid var(--bd);cursor:pointer;}
@@ -204,9 +214,6 @@ button,input,select{font-family:inherit;}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
 .locked-badge{display:inline-block;background:#E6F1FB;color:#185FA5;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid #85B7EB;margin-left:6px;vertical-align:middle;}
 .mchip.locked{background:#E6F1FB;color:#185FA5;border-color:#85B7EB;cursor:default;}
-.lock-bar{background:#E6F1FB;border:1px solid #85B7EB;border-radius:var(--rs);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.lock-bar-txt{font-size:13px;color:#185FA5;font-weight:500;}
-.lock-bar-sub{font-size:11px;color:#378ADD;margin-top:2px;}
 .btn-confirm{width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;}
 .btn-confirm:active{background:var(--gm);}
 .opts-inline{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;}
@@ -216,21 +223,16 @@ button,input,select{font-family:inherit;}
 .option-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:250;align-items:flex-end;justify-content:center;padding:0;}
 .option-modal.open{display:flex;}
 .option-sheet{background:var(--sf);border-radius:var(--r) var(--r) 0 0;width:100%;max-width:480px;padding:20px 16px 32px;}
-.option-sheet-title{font-size:15px;font-weight:700;margin-bottom:4px;}
-.option-sheet-sub{font-size:12px;color:var(--sub);margin-bottom:14px;}
-.option-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:16px;}
-.opt-btn{padding:10px 8px;border:1.5px solid var(--bd2);border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;background:var(--sf);color:var(--tx);text-align:center;transition:all .15s;}
-.opt-btn:active{transform:scale(.96);}
-.opt-btn.selected{border-color:var(--green);background:var(--gl);color:var(--gd);}
-.opt-cancel{width:100%;padding:11px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--sf);color:var(--sub);font-size:14px;cursor:pointer;}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;z-index:400;box-shadow:0 4px 16px rgba(0,0,0,.2);}
 .toast.show{opacity:1;}
+/* 管理員專屬提示條 */
+.admin-hint{background:var(--pl);border:1px solid #AFA9EC;border-radius:var(--rs);padding:8px 12px;font-size:12px;color:var(--purple);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 @media(max-width:380px){.menu-grid{grid-template-columns:repeat(2,1fr);}}
 </style>
 </head>
 <body>
 
-<div id="fbBanner">v4.2 Firebase 即時同步</div>
+<div id="fbBanner">v4.4 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -270,18 +272,35 @@ button,input,select{font-family:inherit;}
 <!-- SUMMARY -->
 <div class="panel" id="panel-summary">
   <div class="content">
-    <div class="slabel">各部門明細（依品項分組）</div>
-    <div id="deptSummary"></div>
-    <div class="slabel">彙整清單</div>
-    <div class="merged-card"><div id="mergedList"><div class="empty">尚未選擇餐點</div></div></div>
+    <!-- 子分頁切換 -->
+    <div class="sum-subtabs" id="sumSubtabs">
+      <!-- 由 JS 動態生成，依角色不同 -->
+    </div>
+
+    <!-- 總額 + 操作按鈕 -->
     <div class="total-bar">
-      <div><div class="total-l">今日合計</div><div class="total-cnt" id="totalCnt">共 0 份</div></div>
+      <div><div class="total-l">今日合計（已送出）</div><div class="total-cnt" id="totalCnt">共 0 份</div></div>
       <div class="total-amt" id="totalAmt">NT$0</div>
     </div>
     <div class="actions">
       <button class="btn-p" onclick="copyOrder()">📋 複製訂單</button>
       <button class="btn-s" onclick="saveHistory()">儲存歷史</button>
       <button class="btn-d" id="clearDayBtn" style="display:none;" onclick="clearDay()">清空今天</button>
+    </div>
+
+    <!-- A：依品項分組（分飯用）-->
+    <div class="sumview" id="sumview-A">
+      <div id="deptSummaryA"></div>
+    </div>
+
+    <!-- B：個人點餐明細 -->
+    <div class="sumview" id="sumview-B">
+      <div id="deptSummaryB"></div>
+    </div>
+
+    <!-- C：彙整清單 -->
+    <div class="sumview" id="sumview-C">
+      <div class="merged-card"><div id="mergedList"><div class="empty">尚未選擇餐點</div></div></div>
     </div>
   </div>
 </div>
@@ -294,54 +313,44 @@ button,input,select{font-family:inherit;}
 <!-- ADMIN -->
 <div class="panel" id="panel-admin">
   <div class="content">
-
     <div class="admin-section">
       <h3>📅 本週店家排程</h3>
       <div class="week-schedule" id="weekSchedule"></div>
       <p style="font-size:11px;color:var(--hint);">點選星期格子可更換當天店家</p>
     </div>
-
     <div class="admin-section">
       <h3>🏪 步驟一：新增店家</h3>
       <div class="add-row">
         <input id="aRestName" placeholder="店家名稱（必填）">
         <button class="btn-sm" onclick="adminCreateRest()">建立店家</button>
       </div>
-      <div style="font-size:12px;color:var(--sub);">建立後在下方「已儲存店家」選該店家，再上傳 CSV</div>
     </div>
-
     <div class="admin-section">
       <h3>🏪 步驟二：選店家並匯入菜單</h3>
       <div class="slabel" style="margin-top:0;">選擇要匯入的店家</div>
       <div class="chip-row" id="importRestSelect"></div>
       <div id="importTargetLabel" style="font-size:13px;color:var(--sub);margin-bottom:10px;min-height:20px;"></div>
-
       <div class="upload-zone" id="uploadZone"
         onclick="document.getElementById('csvFileInput').click()"
         ondragover="dragOver(event)" ondrop="dropCsv(event)" ondragleave="dragLeave()">
         <div class="uz-icon">📄</div>
         <div class="uz-text">點擊或拖曳 CSV 檔案匯入菜單</div>
-        <div class="uz-sub">支援逗號或 Tab 分隔，自動偵測格式</div>
+        <div class="uz-sub">格式：名稱,價格,分類,主食選項,飯量選項,加點選項</div>
       </div>
       <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none" onchange="handleCsvUpload(event)">
-
-      <div class="ai-box" id="importBox">
-        <div class="ai-box-text" id="importBoxText"></div>
-      </div>
-
+      <div class="ai-box" id="importBox"><div class="ai-box-text" id="importBoxText"></div></div>
       <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;margin-top:8px;">
         <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px;">📋 CSV 格式</div>
         <div style="font-size:11px;color:var(--hint);line-height:1.9;font-family:monospace;">
           名稱,價格,分類,主食選項,飯量選項,加點選項<br>
           瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵,正常|半飯|不要飯,加蛋:10|加大:20<br>
-          鍋燒麵,85,鍋燒麵,,, 加麵:15|加蛋:10<br>
+          鍋燒麵,85,鍋燒麵,,,加麵:15|加蛋:10<br>
           雞腿飯,120,飯盒,,正常|半飯|不要飯,<br>
           雞排,60,單點,,,
         </div>
         <button class="btn-sm" style="margin-top:8px;font-size:12px;" onclick="downloadCsvTemplate()">⬇ 下載空白範本</button>
       </div>
     </div>
-
     <div class="admin-section" id="editRestSection" style="display:none;">
       <h3>✏️ 編輯店家：<span id="editRestNameLabel"></span></h3>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
@@ -353,7 +362,6 @@ button,input,select{font-family:inherit;}
       <div class="slabel" style="margin-top:0;">菜單圖片</div>
       <div id="editRestImgs" style="margin-bottom:8px;"></div>
       <input type="file" id="addMoreImgInput" accept="image/*" multiple style="display:none" onchange="handleAddMoreImg(event)">
-
       <div class="slabel">餐點列表</div>
       <div class="add-row">
         <input id="aItemName" placeholder="餐點名稱">
@@ -362,29 +370,21 @@ button,input,select{font-family:inherit;}
         <button class="btn-sm" onclick="adminAddItem()">新增</button>
       </div>
       <div class="add-row" style="margin-top:-4px;">
-        <input id="aItemOptions" placeholder="主食選項（飯|麵|烏龍麵，留空表示無）" style="flex:1;">
+        <input id="aItemOptions" placeholder="主食選項（飯|麵|烏龍麵）" style="flex:1;">
       </div>
       <div class="add-row" style="margin-top:-4px;">
-        <input id="aItemRiceOptions" placeholder="飯量選項（正常|半飯|不要飯，留空表示不詢問飯量）" style="flex:1;">
+        <input id="aItemRiceOptions" placeholder="飯量選項（正常|半飯|不要飯）" style="flex:1;">
       </div>
       <div class="add-row" style="margin-top:-4px;">
-        <input id="aItemAddons" placeholder="加點選項（格式：名稱:加價，例：加麵:15|加蛋:10|加大:20）" style="flex:1;">
+        <input id="aItemAddons" placeholder="加點選項（加麵:15|加蛋:10|加大:20）" style="flex:1;">
       </div>
-      <div style="font-size:11px;color:var(--hint);margin-bottom:10px;">主食選項=互斥選一個；加點選項=可多選，每個獨立計價</div>
       <div class="tag-list" id="aItemList"></div>
     </div>
-
-    <div class="admin-section">
-      <h3>🏪 已儲存店家</h3>
-      <div class="tag-list" id="allRestsList"></div>
-    </div>
-
+    <div class="admin-section"><h3>🏪 已儲存店家</h3><div class="tag-list" id="allRestsList"></div></div>
     <div class="admin-section">
       <h3>👥 部門與人員</h3>
       <div class="add-row">
-        <select id="aDeptSel" style="flex:1;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:13px;background:var(--sf);color:var(--tx);">
-          <option value="">選擇部門</option>
-        </select>
+        <select id="aDeptSel" style="flex:1;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:13px;background:var(--sf);color:var(--tx);"><option value="">選擇部門</option></select>
         <input id="aMemberName" placeholder="人員姓名">
         <button class="btn-sm" onclick="adminAddMember()">新增</button>
       </div>
@@ -394,7 +394,6 @@ button,input,select{font-family:inherit;}
       </div>
       <div id="aDeptList"></div>
     </div>
-
     <div class="admin-section">
       <h3>🔑 管理員密碼</h3>
       <div class="add-row">
@@ -403,21 +402,17 @@ button,input,select{font-family:inherit;}
       </div>
       <button class="btn-d" style="width:100%;margin-top:4px;" onclick="adminLogout()">登出管理員</button>
     </div>
-
   </div>
 </div>
 
-<!-- 主食選項 Modal -->
 <div class="option-modal" id="optionModal">
   <div class="option-sheet">
-    <div class="option-sheet-title" id="optionTitle">請選擇主食</div>
-    <div class="option-sheet-sub" id="optionSub"></div>
-    <div class="option-grid" id="optionGrid"></div>
-    <button class="opt-cancel" onclick="closeOptionModal()">取消</button>
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;" id="optionTitle"></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:14px;" id="optionSub"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:16px;" id="optionGrid"></div>
+    <button style="width:100%;padding:11px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--sf);color:var(--sub);font-size:14px;cursor:pointer;" onclick="closeOptionModal()">取消</button>
   </div>
 </div>
-
-<!-- Login -->
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
     <div class="login-icon">🔒</div>
@@ -429,14 +424,10 @@ button,input,select{font-family:inherit;}
     <button class="btn-s" style="width:100%;margin-top:8px;" onclick="closeLogin()">取消</button>
   </div>
 </div>
-
-<!-- Image viewer -->
 <div class="img-viewer" id="imgViewer">
   <img id="imgViewerImg" src="">
   <button class="img-viewer-close" onclick="closeImgViewer()">✕</button>
 </div>
-
-<!-- Modal -->
 <div class="modal-bg" id="modalBg">
   <div class="modal">
     <h3 id="modalTitle">提示</h3>
@@ -447,45 +438,30 @@ button,input,select{font-family:inherit;}
     </div>
   </div>
 </div>
-
-<!-- Admin btn -->
 <div style="position:fixed;bottom:20px;right:16px;z-index:50;">
   <button onclick="tryAdminLogin()" style="width:44px;height:44px;border-radius:50%;background:var(--sf);border:1px solid var(--bd2);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12);">⚙️</button>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
-// ── Firebase ──
-const FB = {
+const FB={
   apiKey:["AIzaSyDD20_XLJVRvVvTj","RBIRmOToREowrKtXuI"].join(""),
   authDomain:"lunch-ec49c.firebaseapp.com",
   databaseURL:"https://lunch-ec49c-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:"lunch-ec49c",
-  storageBucket:"lunch-ec49c.firebasestorage.app",
-  messagingSenderId:"555132314787",
-  appId:"1:555132314787:web:6f9a2e1932bbaab2e7cb16"
+  projectId:"lunch-ec49c",storageBucket:"lunch-ec49c.firebasestorage.app",
+  messagingSenderId:"555132314787",appId:"1:555132314787:web:6f9a2e1932bbaab2e7cb16"
 };
-
 const DAYS=['一','二','三','四','五'];
 const DAY_KEYS=['mon','tue','wed','thu','fri'];
-const RICE=['正常','半飯','不要飯'];
 
 let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
-let curCat='全部';
-let curMember=null;
+let curCat='全部',curMember=null;
 let isAdmin=sessionStorage.getItem('isAdmin')==='1';
-let editingRid=null;
-let importTargetRid=null;
+let editingRid=null,importTargetRid=null;
+let _modalCb=null,db=null;
+let curSumView=null; // 目前總覽子分頁
 
-function selectImportTarget(rid){
-  importTargetRid=rid;
-  renderAdmin();
-}
-let _modalCb=null;
-let db=null;
-
-let allRests={};
-let schedule={mon:null,tue:null,wed:null,thu:null,fri:null};
+let allRests={},schedule={mon:null,tue:null,wed:null,thu:null,fri:null};
 let depts=[
   {name:'包裝部',members:['小美','小芳']},
   {name:'印刷部',members:['小文']},
@@ -498,158 +474,63 @@ let lockedOrders={mon:{},tue:{},wed:{},thu:{},fri:{}};
 let history=JSON.parse(localStorage.getItem('lunchH7')||'[]');
 let rIdSeq=100,iIdSeq=1000;
 
-function findItemByKey(items, k){
-  const baseId=String(k).split('_')[0];
-  return (items||[]).find(i=>String(i.id)===baseId);
-}
-function isAddonKey(k){ return String(k).includes('_ADD_'); }
-function getAddonName(k){ 
-  const m=String(k).match(/_ADD_(.+)$/);
-  return m?m[1]:'';
-}
-function getOptName(o, k){
-  const parts=String(k).split('_');
-  if(parts.length>1) return parts.slice(1).join('_');
-  return '';
-}
-function getItemLabel(item, optName){
-  return item.name+(optName?'('+optName+')':'');
-}
-function parseOptPrice(optName){
-  if(!optName) return 0;
-  const m=optName.match(/[+＋:：](\d+)$/);
-  return m?parseInt(m[1]):0;
-}
-function getOptDisplayName(optName){
-  if(!optName) return '';
-  return optName.replace(/[+＋:：]\d+$/,'').trim();
-}
-function getItemTotalPrice(item, optName){
-  return item.price + parseOptPrice(optName);
-}
+/* ── helpers ── */
+function findItemByKey(items,k){const baseId=String(k).split('_')[0];return(items||[]).find(i=>String(i.id)===baseId);}
+function isAddonKey(k){return String(k).includes('_ADD_');}
+function getAddonName(k){const m=String(k).match(/_ADD_(.+)$/);return m?m[1]:'';}
+function getOptName(o,k){const parts=String(k).split('_');return parts.length>1?parts.slice(1).join('_'):'';}
+function getItemLabel(item,optName){return item.name+(optName?'('+optName+')':'');}
+function parseOptPrice(optName){if(!optName)return 0;const m=optName.match(/[+＋:：](\d+)$/);return m?parseInt(m[1]):0;}
+function getOptDisplayName(optName){if(!optName)return'';return optName.replace(/[+＋:：]\d+$/,'').trim();}
+function getItemTotalPrice(item,optName){return item.price+parseOptPrice(optName);}
+
+/* ── Firebase ── */
 function initFB(){
   try{
-    firebase.initializeApp(FB);
-    db=firebase.database();
-    setSS('syncing');
-    db.ref('orders').on('value',s=>{
-      const v=s.val();if(v)DAY_KEYS.forEach(k=>{if(v[k])orders[k]=v[k];});
-      renderAll();
-      if(document.getElementById('panel-summary').classList.contains('active'))renderSummary();
-    });
-    db.ref('allRests').on('value',s=>{
-      const v=s.val();if(v){
-        allRests=v;
-        const maxId=Object.keys(allRests)
-          .map(k=>parseInt(k.replace('r',''))||0)
-          .reduce((a,b)=>Math.max(a,b),99);
-        rIdSeq=maxId+1;
-      }
-      renderAll();if(isAdmin)renderAdmin();
-      if(document.getElementById('panel-summary').classList.contains('active'))renderSummary();
-    });
-    db.ref('schedule').on('value',s=>{
-      const v=s.val();if(v)Object.assign(schedule,v);
-      renderAll();if(isAdmin)renderAdmin();
-    });
-    db.ref('depts').on('value',s=>{
-      if(_deptsLocalPush){ _deptsLocalPush=false; return; }
-      const v=s.val();
-      if(v!=null){
-        let arr=[];
-        if(Array.isArray(v)) arr=v;
-        else if(typeof v==='object') arr=Object.values(v);
-        depts=arr.filter(d=>d&&d.name).map(d=>({name:d.name,members:Array.isArray(d.members)?d.members:(d.members?Object.values(d.members):[])}));
-      }
-      renderAll();if(isAdmin)renderAdmin();
-    });
-    db.ref('.info/connected').on('value',s=>{
-      setSS(s.val()?'ok':'off');
-      renderAll();
-    });
-    db.ref('lockedOrders').on('value',s=>{
-      const v=s.val();
-      if(v) DAY_KEYS.forEach(dk=>{if(v[dk]) lockedOrders[dk]=v[dk];});
-      renderAll();
-    });
-  }catch(e){
-    console.error(e);
-    setSS('off');
-    document.getElementById('fbBanner').className='warn';
-    document.getElementById('fbBanner').textContent='⚠️ Firebase 連線失敗，請檢查網路';
-    renderAll();
-  }
+    firebase.initializeApp(FB);db=firebase.database();setSS('syncing');
+    db.ref('orders').on('value',s=>{const v=s.val();if(v)DAY_KEYS.forEach(k=>{if(v[k])orders[k]=v[k];});renderAll();if(document.getElementById('panel-summary').classList.contains('active'))renderSummary();});
+    db.ref('allRests').on('value',s=>{const v=s.val();if(v){allRests=v;const mx=Object.keys(allRests).map(k=>parseInt(k.replace('r',''))||0).reduce((a,b)=>Math.max(a,b),99);rIdSeq=mx+1;}renderAll();if(isAdmin)renderAdmin();if(document.getElementById('panel-summary').classList.contains('active'))renderSummary();});
+    db.ref('schedule').on('value',s=>{const v=s.val();if(v)Object.assign(schedule,v);renderAll();if(isAdmin)renderAdmin();});
+    db.ref('depts').on('value',s=>{if(_deptsLocalPush){_deptsLocalPush=false;return;}const v=s.val();if(v!=null){let arr=Array.isArray(v)?v:Object.values(v);depts=arr.filter(d=>d&&d.name).map(d=>({name:d.name,members:Array.isArray(d.members)?d.members:(d.members?Object.values(d.members):[])}));}renderAll();if(isAdmin)renderAdmin();});
+    db.ref('.info/connected').on('value',s=>{setSS(s.val()?'ok':'off');renderAll();});
+    db.ref('lockedOrders').on('value',s=>{const v=s.val();if(v)DAY_KEYS.forEach(dk=>{if(v[dk])lockedOrders[dk]=v[dk];});renderAll();});
+  }catch(e){console.error(e);setSS('off');document.getElementById('fbBanner').className='warn';document.getElementById('fbBanner').textContent='⚠️ Firebase 連線失敗';renderAll();}
 }
 function setSS(s){document.getElementById('syncDot').className='sync-dot'+(s==='syncing'?' syncing':s==='off'?' off':'');}
 function pushOrders(){if(db){setSS('syncing');db.ref('orders/'+dk()).set(orders[dk()]||{}).then(()=>setSS('ok')).catch(()=>setSS('off'));}}
 function pushRests(){if(db)db.ref('allRests').set(allRests);}
 function pushSchedule(){if(db)db.ref('schedule').set(schedule);}
 let _deptsLocalPush=false;
-function pushLocked(){
-  if(db) db.ref('lockedOrders/'+dk()).set(lockedOrders[dk()]||{});
-}
-function isLocked(dept, member){
-  return !!(lockedOrders[dk()]&&lockedOrders[dk()][dept+'__'+member]);
-}
-function lockMember(dept, member){
-  if(!lockedOrders[dk()]) lockedOrders[dk()]={};
-  lockedOrders[dk()][dept+'__'+member]=true;
-  pushLocked();
-}
-function unlockMember(dept, member){
-  if(lockedOrders[dk()]) delete lockedOrders[dk()][dept+'__'+member];
-  pushLocked();
-}
+function pushLocked(){if(db)db.ref('lockedOrders/'+dk()).set(lockedOrders[dk()]||{});}
+function isLocked(dept,member){return!!(lockedOrders[dk()]&&lockedOrders[dk()][dept+'__'+member]);}
+function lockMember(dept,member){if(!lockedOrders[dk()])lockedOrders[dk()]={};lockedOrders[dk()][dept+'__'+member]=true;pushLocked();}
+function unlockMember(dept,member){if(lockedOrders[dk()])delete lockedOrders[dk()][dept+'__'+member];pushLocked();}
 function pushDepts(){
-  if(!db){ renderAll(); if(isAdmin) renderAdmin(); return; }
+  if(!db){renderAll();if(isAdmin)renderAdmin();return;}
   _deptsLocalPush=true;
-  const obj={};
-  depts.forEach((d,i)=>{
-    obj['d'+String(i).padStart(3,'0')]={
-      name:d.name,
-      members:d.members||[]
-    };
-  });
-  db.ref('depts').set(obj).catch(err=>{
-    console.error('pushDepts failed',err);
-    _deptsLocalPush=false;
-  });
-  renderAll();
-  if(isAdmin) renderAdmin();
+  const obj={};depts.forEach((d,i)=>{obj['d'+String(i).padStart(3,'0')]={name:d.name,members:d.members||[]};});
+  db.ref('depts').set(obj).catch(()=>{_deptsLocalPush=false;});
+  renderAll();if(isAdmin)renderAdmin();
 }
-
 function dk(){return DAY_KEYS[curDayIdx];}
 function todayRest(){const rid=schedule[dk()];return rid?allRests[rid]:null;}
 function todayRid(){return schedule[dk()]||null;}
 function getPwd(){return localStorage.getItem('adminPwd')||'1234';}
-
-function getOrder(dept,member){
-  const rid=todayRid();if(!rid)return{items:{},rice:'正常'};
-  return orders[dk()]?.[rid]?.[dept]?.[member]||{items:{},rice:'正常'};
-}
+function getOrder(dept,member){const rid=todayRid();if(!rid)return{items:{},rice:'正常'};return orders[dk()]?.[rid]?.[dept]?.[member]||{items:{},rice:'正常'};}
 function mutOrder(dept,member,fn){
-  const rid=todayRid();if(!rid)return;
-  const d=dk();
-  if(!orders[d])orders[d]={};
-  if(!orders[d][rid])orders[d][rid]={};
+  const rid=todayRid();if(!rid)return;const d=dk();
+  if(!orders[d])orders[d]={};if(!orders[d][rid])orders[d][rid]={};
   if(!orders[d][rid][dept])orders[d][rid][dept]={};
   if(!orders[d][rid][dept][member])orders[d][rid][dept][member]={items:{},rice:'正常'};
-  fn(orders[d][rid][dept][member]);
-  pushOrders();
+  fn(orders[d][rid][dept][member]);pushOrders();
 }
 function mTotal(dept,member){
   const r=todayRest();if(!r)return 0;
   const o=getOrder(dept,member);
   return Object.keys(o.items||{}).reduce((s,k)=>{
-    if(isAddonKey(k)){
-      const addonN=getAddonName(k);
-      const addonPrice=parseOptPrice(addonN);
-      return s+addonPrice*(o.items[k]||0);
-    }
-    const it=findItemByKey(r.items,k);
-    if(!it) return s;
-    const optN=getOptName(o,k);
-    return s+getItemTotalPrice(it,optN)*o.items[k];
+    if(isAddonKey(k)){const addonN=getAddonName(k);return s+parseOptPrice(addonN)*(o.items[k]||0);}
+    const it=findItemByKey(r.items,k);if(!it)return s;
+    return s+getItemTotalPrice(it,getOptName(o,k))*o.items[k];
   },0);
 }
 function dayHas(idx){
@@ -658,13 +539,9 @@ function dayHas(idx){
   return Object.keys(o).some(dep=>Object.keys(o[dep]||{}).some(m=>Object.keys(o[dep][m]?.items||{}).length>0));
 }
 
+/* ── render ── */
 function renderAll(){renderWeek();renderRestBar();renderMenuImg();renderDepts();renderCatBar();renderMenu();updateHdr();updAdmin();}
-
-function updateHdr(){
-  let t=0;const r=todayRest();
-  if(r)depts.forEach(d=>d.members.forEach(m=>t+=mTotal(d.name,m)));
-  document.getElementById('hdrAmt').textContent='NT$'+t;
-}
+function updateHdr(){let t=0;const r=todayRest();if(r)depts.forEach(d=>d.members.forEach(m=>t+=mTotal(d.name,m)));document.getElementById('hdrAmt').textContent='NT$'+t;}
 function updAdmin(){
   document.getElementById('adminBadge').style.display=isAdmin?'':'none';
   document.getElementById('adminTabBtn').style.display=isAdmin?'':'none';
@@ -679,40 +556,28 @@ function renderRestBar(){
   const r=todayRest();
   document.getElementById('restBar').innerHTML=r
     ?`<div class="chip g">${r.name}</div><span style="font-size:12px;color:var(--sub);padding:5px 4px;">今日店家</span>`
-    :'<div style="font-size:13px;color:var(--hint);padding:4px 0;">今日尚未安排店家（請管理員設定）</div>';
+    :'<div style="font-size:13px;color:var(--hint);padding:4px 0;">今日尚未安排店家</div>';
 }
 function renderMenuImg(){
-  const r=todayRest();
-  const area=document.getElementById('menuImgArea');
+  const r=todayRest(),area=document.getElementById('menuImgArea');
   if(!r||!r.images||!r.images.length){area.innerHTML='';return;}
-  area.innerHTML=`<div class="slabel">菜單圖片（點擊放大）</div>
-    <div class="menu-imgs-row">${r.images.map(img=>`<div class="menu-img-thumb" onclick="openViewer('${img}')"><img src="${img}"></div>`).join('')}</div>`;
+  area.innerHTML=`<div class="slabel">菜單圖片（點擊放大）</div><div class="menu-imgs-row">${r.images.map(img=>`<div class="menu-img-thumb" onclick="openViewer('${img}')"><img src="${img}"></div>`).join('')}</div>`;
 }
 function renderDepts(){
   document.getElementById('deptBlocks').innerHTML=depts.map((dept,di)=>{
     const dt=dept.members.reduce((s,m)=>s+mTotal(dept.name,m),0);
     const mh=dept.members.map(m=>{
       const act=curMember&&curMember.dept===dept.name&&curMember.name===m;
-      const t=mTotal(dept.name,m);
-      const has=Object.keys(getOrder(dept.name,m).items||{}).length>0;
+      const t=mTotal(dept.name,m);const has=Object.keys(getOrder(dept.name,m).items||{}).length>0;
       const locked=isLocked(dept.name,m);
-      if(locked){
-        return `<div class="mchip locked" title="已送出訂單">${m}<span class="locked-badge">✓已送出</span></div>`;
-      }
-      return `<div class="mchip${act?' active':''}" onclick="selMember('${dept.name}','${m}')">${m}${has?`<span class="mchip-sub">NT$${t}</span>`:''}</div>`;
+      if(locked)return`<div class="mchip locked">${m}<span class="locked-badge">✓已送出</span></div>`;
+      return`<div class="mchip${act?' active':''}" onclick="selMember('${dept.name}','${m}')">${m}${has?`<span class="mchip-sub">NT$${t}</span>`:''}</div>`;
     }).join('');
-    return `<div class="dept-block">
-      <div class="dept-head" onclick="toggleDept(${di})">
-        <div class="dept-info"><span class="dept-name">${dept.name}</span><span class="dept-cnt">${dept.members.length}人</span></div>
-        <span class="dept-total">${dt>0?'NT$'+dt:''}</span>
-      </div>
-      <div class="dept-members" id="dm${di}">${mh}</div>
-    </div>`;
+    return`<div class="dept-block"><div class="dept-head" onclick="toggleDept(${di})"><div class="dept-info"><span class="dept-name">${dept.name}</span><span class="dept-cnt">${dept.members.length}人</span></div><span class="dept-total">${dt>0?'NT$'+dt:''}</span></div><div class="dept-members" id="dm${di}">${mh}</div></div>`;
   }).join('');
 }
 function renderCatBar(){
-  const r=todayRest();
-  const cats=['全部',...new Set((r?.items||[]).map(i=>i.cat))];
+  const r=todayRest();const cats=['全部',...new Set((r?.items||[]).map(i=>i.cat))];
   document.getElementById('catBar').innerHTML=cats.map(c=>`<button class="cat-btn${c===curCat?' active':''}" onclick="selCat('${c}')">${c}</button>`).join('');
 }
 function renderMenu(){
@@ -720,277 +585,183 @@ function renderMenu(){
   if(!r){document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">今日尚無菜單，請管理員設定</div>';return;}
   if(!curMember){document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">請先在上方選擇你的名字</div>';return;}
   if(isLocked(curMember.dept,curMember.name)){
-    document.getElementById('menuGrid').innerHTML=`<div style="padding:20px;text-align:center;">
-      <div style="font-size:40px;margin-bottom:10px;">✅</div>
-      <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px;">${curMember.name} 的訂單已送出</div>
-      <div style="font-size:13px;color:var(--sub);margin-bottom:16px;">NT$${mTotal(curMember.dept,curMember.name)}</div>
-      ${isAdmin?`<button class="btn-sm" onclick="unlockMember('${curMember.dept}','${curMember.name}');renderMenu();" style="color:var(--red);border-color:#F09595;">管理員解鎖</button>`:''}
-    </div>`;
+    document.getElementById('menuGrid').innerHTML=`<div style="padding:20px;text-align:center;"><div style="font-size:40px;margin-bottom:10px;">✅</div><div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px;">${curMember.name} 的訂單已送出</div><div style="font-size:13px;color:var(--sub);margin-bottom:16px;">NT$${mTotal(curMember.dept,curMember.name)}</div>${isAdmin?`<button class="btn-sm" onclick="unlockMember('${curMember.dept}','${curMember.name}');renderMenu();" style="color:var(--red);border-color:#F09595;">管理員解鎖</button>`:''}</div>`;
     return;
   }
   const items=curCat==='全部'?r.items:r.items.filter(i=>i.cat===curCat);
   const o=getOrder(curMember.dept,curMember.name);
   const ro=o.rice||'正常';
-  const rid=todayRid();
-  const ro2=orders[dk()]?.[rid]||{};
-
+  const rid=todayRid(),ro2=orders[dk()]?.[rid]||{};
   document.getElementById('menuGrid').innerHTML=items.map(item=>{
     const hasOpts=item.options&&item.options.length>0;
     const sid=String(item.id);
-
     let tq=0;
-    depts.forEach(d=>d.members.forEach(m=>{
-      const mo=ro2[d.name]?.[m]?.items||{};
-      Object.keys(mo).forEach(k=>{
-        if(k===sid||k.startsWith(sid+'_')) tq+=mo[k];
-      });
-    }));
-
+    depts.forEach(d=>d.members.forEach(m=>{const mo=ro2[d.name]?.[m]?.items||{};Object.keys(mo).forEach(k=>{if(k===sid||k.startsWith(sid+'_'))tq+=mo[k];});}));
     const myKeys=Object.keys(o.items||{}).filter(k=>k===sid||k.startsWith(sid+'_'));
-    let mq=0; myKeys.forEach(k=>mq+=o.items[k]);
-
+    let mq=0;myKeys.forEach(k=>mq+=o.items[k]);
     let body='';
     if(hasOpts){
-      const optBtns=item.options.map(opt=>{
-        const k=sid+'_'+opt;
-        const qty=o.items[k]||0;
-        const extraP=parseOptPrice(opt);
-        const dispN=getOptDisplayName(opt);
-        const pTag=extraP>0?` <span style="font-size:10px;opacity:.8;color:var(--amber);">+${extraP}</span>`:'';
-        return `<button class="opt-inline${qty>0?' active':''}" onclick="clickItemOpt(${item.id},'${opt}',event)">${dispN}${pTag}${qty>0?' ×'+qty:''}</button>`;
-      }).join('');
+      const optBtns=item.options.map(opt=>{const k=sid+'_'+opt;const qty=o.items[k]||0;const extraP=parseOptPrice(opt);const dispN=getOptDisplayName(opt);const pTag=extraP>0?` <span style="font-size:10px;opacity:.8;color:var(--amber);">+${extraP}</span>`:'';return`<button class="opt-inline${qty>0?' active':''}" onclick="clickItemOpt(${item.id},'${opt}',event)">${dispN}${pTag}${qty>0?' ×'+qty:''}</button>`;}).join('');
       body+=`<div class="opts-inline">${optBtns}</div>`;
-      myKeys.forEach(k=>{
-        const optName=k.slice(sid.length+1);
-        const qty=o.items[k];
-        const dispOptName=getOptDisplayName(optName);
-        const extraOptP=parseOptPrice(optName);
-        const unitOptP=item.price+extraOptP;
-        body+=`<div class="qty-ctrl" style="margin-top:4px;">
-          <span style="font-size:11px;color:var(--gd);flex:1;">${dispOptName} <span style="color:var(--green);font-weight:700;">NT$${unitOptP}</span></span>
-          <button class="qty-b" onclick="chQty('${k}',-1,event)">−</button>
-          <span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${qty}</span>
-          <button class="qty-b" onclick="chQty('${k}',1,event)">+</button>
-        </div>`;
-      });
-    } else {
+      myKeys.forEach(k=>{const optName=k.slice(sid.length+1);const qty=o.items[k];const dispOptName=getOptDisplayName(optName);const extraOptP=parseOptPrice(optName);const unitOptP=item.price+extraOptP;body+=`<div class="qty-ctrl" style="margin-top:4px;"><span style="font-size:11px;color:var(--gd);flex:1;">${dispOptName} <span style="color:var(--green);font-weight:700;">NT$${unitOptP}</span></span><button class="qty-b" onclick="chQty('${k}',-1,event)">−</button><span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${qty}</span><button class="qty-b" onclick="chQty('${k}',1,event)">+</button></div>`;});
+    }else{
       const itemRices=item.riceOptions||(item.hasRice?['正常','半飯','不要飯']:null);
       const rh=mq>0&&itemRices?`<div class="rice-row">${itemRices.map(rv=>`<button class="rice-btn${ro===rv?' active':''}" onclick="setRice('${rv}',event)">${rv}</button>`).join('')}</div>`:'';
-      const qh=mq>0?`<div class="qty-ctrl">
-        <button class="qty-b" onclick="chQty('${sid}',-1,event)">−</button>
-        <span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${mq}</span>
-        <button class="qty-b" onclick="chQty('${sid}',1,event)">+</button>
-      </div>`:'';
+      const qh=mq>0?`<div class="qty-ctrl"><button class="qty-b" onclick="chQty('${sid}',-1,event)">−</button><span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${mq}</span><button class="qty-b" onclick="chQty('${sid}',1,event)">+</button></div>`:'';
       let addonHtml='';
-      if(item.addons&&item.addons.length>0){
-        const addonBtns=item.addons.map(addon=>{
-          const ak=sid+'_ADD_'+addon;
-          const aqty=o.items[ak]||0;
-          const aPrice=parseOptPrice(addon);
-          const aName=getOptDisplayName(addon);
-          return `<button class="rice-btn${aqty>0?' active':''}" style="${aqty>0?'background:var(--gl);color:var(--gm);border-color:var(--green);':''}" onclick="toggleAddon('${sid}','${addon}',event)">${aName}${aPrice>0?' +'+aPrice:''}${aqty>0?' ✓':''}</button>`;
-        }).join('');
-        addonHtml=`<div class="rice-row" style="margin-top:5px;">${addonBtns}</div>`;
-      }
+      if(item.addons&&item.addons.length>0){const addonBtns=item.addons.map(addon=>{const ak=sid+'_ADD_'+addon;const aqty=o.items[ak]||0;const aPrice=parseOptPrice(addon);const aName=getOptDisplayName(addon);return`<button class="rice-btn${aqty>0?' active':''}" style="${aqty>0?'background:var(--gl);color:var(--gm);border-color:var(--green);':''}" onclick="toggleAddon('${sid}','${addon}',event)">${aName}${aPrice>0?' +'+aPrice:''}${aqty>0?' ✓':''}</button>`;}).join('');addonHtml=`<div class="rice-row" style="margin-top:5px;">${addonBtns}</div>`;}
       body=qh+rh+addonHtml;
     }
-
-    return `<div class="mcard${mq>0?' sel':''}" onclick="${hasOpts?'void(0)':'clickItem('+item.id+')'}">
-      ${tq>0?`<div class="qbadge">${tq}</div>`:''}
-      <div class="cat-tag">${item.cat}</div>
-      <div class="mname">${item.name}</div>
-      <div class="mprice">NT$${item.price}${mq>0&&!hasOpts?' ×'+mq:''}</div>
-      ${body}
-    </div>`;
+    return`<div class="mcard${mq>0?' sel':''}" onclick="${hasOpts?'void(0)':'clickItem('+item.id+')'}">${tq>0?`<div class="qbadge">${tq}</div>`:''}<div class="cat-tag">${item.cat}</div><div class="mname">${item.name}</div><div class="mprice">NT$${item.price}${mq>0&&!hasOpts?' ×'+mq:''}</div>${body}</div>`;
   }).join('');
-
   const myO=getOrder(curMember.dept,curMember.name);
   const myTotal=mTotal(curMember.dept,curMember.name);
   if(Object.keys(myO.items||{}).length>0){
-    document.getElementById('menuGrid').innerHTML+=`
-      <div style="grid-column:1/-1;margin-top:4px;">
-        <button class="btn-confirm" onclick="confirmOrder()">✓ 確認送出（NT$${myTotal}）</button>
-      </div>`;
+    document.getElementById('menuGrid').innerHTML+=`<div style="grid-column:1/-1;margin-top:4px;"><button class="btn-confirm" onclick="confirmOrder()">✓ 確認送出（NT$${myTotal}）</button></div>`;
   }
 }
 
 function confirmOrder(){
-  if(!curMember){return;}
+  if(!curMember)return;
   const o=getOrder(curMember.dept,curMember.name);
   if(!Object.keys(o.items||{}).length){showToast('請先點選餐點');return;}
   const total=mTotal(curMember.dept,curMember.name);
-  if(!confirm(curMember.name+' 確認送出訂單？\n送出後無法更改\n合計：NT$'+total)){return;}
-  lockMember(curMember.dept,curMember.name);
-  curMember=null;
-  renderAll();
-  showToast('訂單已送出！');
+  if(!confirm(curMember.name+' 確認送出訂單？\n送出後無法更改\n合計：NT$'+total))return;
+  lockMember(curMember.dept,curMember.name);curMember=null;renderAll();showToast('訂單已送出！');
 }
 
-// ── v4.2 新增：管理員取消單一餐點 ──
-function adminCancelItem(deptName, memberName, itemKey){
+/* ── 管理員取消單一餐點 ── */
+function adminCancelItem(deptName,memberName,itemKey){
   if(!isAdmin){showToast('需要管理員權限');return;}
-  const r=todayRest();
-  const o=getOrder(deptName,memberName);
+  const r=todayRest();const o=getOrder(deptName,memberName);
   let displayLabel=itemKey;
-  if(isAddonKey(itemKey)){
-    displayLabel='+ '+getOptDisplayName(getAddonName(itemKey));
-  } else {
-    const it=findItemByKey(r?.items,itemKey);
-    if(it){
-      const optN=getOptName(o,itemKey);
-      displayLabel=it.name+(optN?' | '+getOptDisplayName(optN):'');
-    }
-  }
-  if(!confirm('[管理員] 確定取消 '+memberName+' 的「'+displayLabel+'」？')){return;}
-  mutOrder(deptName,memberName,ord=>{
-    delete ord.items[itemKey];
-  });
-  // 若取消後該人無任何餐點，也解除鎖定
+  if(isAddonKey(itemKey)){displayLabel='+ '+getOptDisplayName(getAddonName(itemKey));}
+  else{const it=findItemByKey(r?.items,itemKey);if(it){const optN=getOptName(o,itemKey);displayLabel=it.name+(optN?' | '+getOptDisplayName(optN):'');}}
+  if(!confirm('[管理員] 確定取消 '+memberName+' 的「'+displayLabel+'」？'))return;
+  mutOrder(deptName,memberName,ord=>{delete ord.items[itemKey];});
   const remaining=Object.keys(getOrder(deptName,memberName).items||{});
-  if(!remaining.length) unlockMember(deptName,memberName);
-  renderAll();
-  renderSummary();
-  showToast('[管理員] 已取消 '+memberName+' 的 '+displayLabel);
+  if(!remaining.length)unlockMember(deptName,memberName);
+  renderAll();renderSummary();showToast('[管理員] 已取消 '+memberName+' 的 '+displayLabel);
 }
 
-// ── v4.2 修改：renderSummary 按品項分組 ──
+/* ── 總覽子分頁 ── */
+function initSumSubtabs(){
+  const el=document.getElementById('sumSubtabs');
+  const tabs=[
+    {id:'A',label:'🍱 依品項分組'},
+    {id:'B',label:'👤 個人點餐明細'},
+    {id:'C',label:'📋 彙整清單'},
+  ];
+  el.innerHTML=tabs.map(t=>`<button class="sstab" id="sstab-${t.id}" onclick="switchSumView('${t.id}')">${t.label}</button>`).join('');
+  if(!curSumView)curSumView='A';
+  switchSumView(curSumView,true);
+}
+function switchSumView(id,silent){
+  curSumView=id;
+  document.querySelectorAll('.sstab').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.sumview').forEach(el=>el.classList.remove('active'));
+  const tab=document.getElementById('sstab-'+id);
+  if(tab)tab.classList.add('active');
+  const view=document.getElementById('sumview-'+id);
+  if(view)view.classList.add('active');
+}
+
+/* ── 主渲染：總覽 ── */
 function renderSummary(){
   const r=todayRest();
-  if(!r && Object.keys(allRests).length===0){
-    document.getElementById('deptSummary').innerHTML='<div class="empty">⏳ 載入中...</div>';
+  if(!r&&Object.keys(allRests).length===0){
+    document.getElementById('deptSummaryA').innerHTML='<div class="empty">⏳ 載入中...</div>';
+    document.getElementById('deptSummaryB').innerHTML='<div class="empty">⏳ 載入中...</div>';
+    document.getElementById('mergedList').innerHTML='<div class="empty">⏳ 載入中...</div>';
     return;
   }
-  let gT=0,gC=0;let dh='';
 
-  function buildLabel(item, optName, rice){
-    let label=item.name;
-    if(optName) label+=' | '+getOptDisplayName(optName);
-    const hasRice=item.riceOptions&&item.riceOptions.length>0;
-    if(hasRice&&rice&&rice!=='正常') label+=' | '+rice;
-    return label;
-  }
-  function buildLabelGlobal(item, optName, rice){
-    let label=item.name;
-    if(optName) label+=' | '+getOptDisplayName(optName);
-    if(rice&&rice!=='正常') label+=' | '+rice;
-    return label;
-  }
+  initSumSubtabs();
 
-  // ── 各部門明細（按品項分組，只顯示已送出的人）──
+  let gT=0,gC=0;
   let unlockedCount=0;
+
+  // 收集所有資料
+  function buildLabel(item,optName,rice){
+    let label=item.name;
+    if(optName)label+=' | '+getOptDisplayName(optName);
+    const hasRice=item.riceOptions&&item.riceOptions.length>0;
+    if(hasRice&&rice&&rice!=='正常')label+=' | '+rice;
+    return label;
+  }
+
+  /* ── A：品項分組（管理員，含取消）── */
+  let dhA='';
   depts.forEach(dept=>{
-    let dt=0;
-    // 收集品項群組: label -> {price, members:[{name,qty,amt,key}]}
-    const itemGroups={};
+    let dt=0;const itemGroups={};
     dept.members.forEach(m=>{
-      if(!isLocked(dept.name,m)){
-        const o=getOrder(dept.name,m);
-        if(Object.keys(o.items||{}).length>0) unlockedCount++;
-        return;
-      }
-      const o=getOrder(dept.name,m);
-      const rice=o.rice||'正常';
+      if(!isLocked(dept.name,m)){const o=getOrder(dept.name,m);if(Object.keys(o.items||{}).length>0)unlockedCount++;return;}
+      const o=getOrder(dept.name,m);const rice=o.rice||'正常';
       Object.keys(o.items||{}).forEach(k=>{
-        if(isAddonKey(k)){
-          const addonN=getAddonName(k);
-          const addonPrice=parseOptPrice(addonN);
-          const addonDisplayN=getOptDisplayName(addonN);
-          if(addonPrice>0){
-            const s=addonPrice*(o.items[k]||0);
-            dt+=s;gT+=s;
-            const lb='+ '+addonDisplayN;
-            if(!itemGroups[lb]) itemGroups[lb]={price:addonPrice,members:[]};
-            itemGroups[lb].members.push({name:m,qty:o.items[k]||0,amt:s,key:k});
-          }
-          return;
-        }
+        if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);const addonDisplayN=getOptDisplayName(addonN);if(addonPrice>0){const s=addonPrice*(o.items[k]||0);dt+=s;gT+=s;const lb='+ '+addonDisplayN;if(!itemGroups[lb])itemGroups[lb]={price:addonPrice,members:[]};itemGroups[lb].members.push({name:m,qty:o.items[k]||0,amt:s,key:k});}return;}
         const it=findItemByKey(r?.items,k);
-        if(it){
-          const optN=getOptName(o,k);
-          const s=getItemTotalPrice(it,optN)*o.items[k];
-          dt+=s;gT+=s;gC+=o.items[k];
-          const label=buildLabel(it,optN,rice);
-          if(!itemGroups[label]) itemGroups[label]={price:getItemTotalPrice(it,optN),members:[]};
-          itemGroups[label].members.push({name:m,qty:o.items[k],amt:s,key:k,dept:dept.name});
-        }
+        if(it){const optN=getOptName(o,k);const s=getItemTotalPrice(it,optN)*o.items[k];dt+=s;gT+=s;gC+=o.items[k];const label=buildLabel(it,optN,rice);if(!itemGroups[label])itemGroups[label]={price:getItemTotalPrice(it,optN),members:[]};itemGroups[label].members.push({name:m,qty:o.items[k],amt:s,key:k,dept:dept.name});}
       });
     });
-    const groupKeys=Object.keys(itemGroups);
-    if(!groupKeys.length) return;
-    // 依品項名稱排序（同品項排在一起）
+    const groupKeys=Object.keys(itemGroups);if(!groupKeys.length)return;
     groupKeys.sort((a,b)=>a.localeCompare(b,'zh-Hant'));
     let pr='';
     groupKeys.forEach(label=>{
       const grp=itemGroups[label];
-      const grpTotal=grp.members.reduce((s,x)=>s+x.amt,0);
-      const grpQty=grp.members.reduce((s,x)=>s+x.qty,0);
-      const rows=grp.members.map(x=>{
-        const cancelBtn=isAdmin
-          ?`<button class="sum-cancel-btn" onclick="adminCancelItem('${dept.name}','${x.name}','${x.key}')">✕ 取消</button>`
-          :'';
-        return `<div class="sum-person-row">
-          <span class="sum-person-name">${x.name}</span>
-          <span class="sum-person-qty">× ${x.qty}</span>
-          <span class="sum-person-amt">NT$${x.amt}</span>
-          ${cancelBtn}
-        </div>`;
-      }).join('');
-      pr+=`<div class="sum-item-group">
-        <div class="sum-item-label">
-          <span class="sum-item-label-name">${label}</span>
-          <span class="sum-item-label-total">共 ${grpQty} 份　NT$${grpTotal}</span>
-        </div>
-        ${rows}
-      </div>`;
+      const grpTotal=grp.members.reduce((s,x)=>s+x.amt,0);const grpQty=grp.members.reduce((s,x)=>s+x.qty,0);
+      const rows=grp.members.map(x=>`<div class="sum-person-row"><span class="sum-person-name">${x.name}</span><span class="sum-person-qty">× ${x.qty}</span><span class="sum-person-amt">NT$${x.amt}</span>${isAdmin?`<button class="sum-cancel-btn" onclick="adminCancelItem('${dept.name}','${x.name}','${x.key}')">✕ 取消</button>`:''}</div>`).join('');
+      pr+=`<div class="sum-item-group"><div class="sum-item-label"><span class="sum-item-label-name">${label}</span><span class="sum-item-label-total">共 ${grpQty} 份　NT$${grpTotal}</span></div>${rows}</div>`;
     });
-    dh+=`<div class="sum-dept">
-      <div class="sum-dept-head"><span class="sum-dept-title">${dept.name}</span><span class="sum-dept-amt">NT$${dt}</span></div>
-      ${pr}
-    </div>`;
+    dhA+=`<div class="sum-dept"><div class="sum-dept-head"><span class="sum-dept-title">${dept.name}</span><span class="sum-dept-amt">NT$${dt}</span></div>${pr}</div>`;
   });
-  if(unlockedCount>0){
-    dh+=`<div style="background:var(--al);border:1px solid var(--amber);border-radius:var(--rs);padding:10px 14px;margin-top:8px;font-size:12px;color:var(--amber);">
-      ⏳ 尚有 ${unlockedCount} 人未送出訂單，送出後才會顯示在總覽
-    </div>`;
-  }
-  document.getElementById('deptSummary').innerHTML=dh||'<div class="empty">尚無訂單</div>';
+  if(unlockedCount>0)dhA+=`<div style="background:var(--al);border:1px solid var(--amber);border-radius:var(--rs);padding:10px 14px;margin-top:8px;font-size:12px;color:var(--amber);">⏳ 尚有 ${unlockedCount} 人未送出訂單，送出後才會顯示在總覽</div>`;
+  document.getElementById('deptSummaryA').innerHTML=dhA||'<div class="empty">尚無訂單</div>';
 
-  // ── 彙整清單（只計已送出的人）──
+  /* ── B：個人點餐明細（每人一行：姓名 | 品項1×1、品項2×1 | NT$XXX）── */
+  let dhB='';let unlockedB=0;
+  depts.forEach(dept=>{
+    const rows=[];
+    dept.members.forEach(m=>{
+      if(!isLocked(dept.name,m)){
+        const o=getOrder(dept.name,m);if(Object.keys(o.items||{}).length>0)unlockedB++;return;
+      }
+      const o=getOrder(dept.name,m);const rice=o.rice||'正常';
+      let mt=0;
+      const grouped={};
+      Object.keys(o.items||{}).forEach(k=>{
+        if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);const addonDisplayN=getOptDisplayName(addonN);if(addonPrice>0){const lb='+ '+addonDisplayN;if(!grouped[lb])grouped[lb]={qty:0,unitPrice:addonPrice};grouped[lb].qty+=(o.items[k]||0);mt+=addonPrice*(o.items[k]||0);}return;}
+        const it=findItemByKey(r?.items,k);
+        if(it){const optN=getOptName(o,k);const unitPrice=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);if(!grouped[label])grouped[label]={qty:0,unitPrice};grouped[label].qty+=o.items[k];mt+=unitPrice*o.items[k];}
+      });
+      if(!Object.keys(grouped).length)return;
+      const sortedNames=Object.keys(grouped).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+      const itemText=sortedNames.map(name=>{const g=grouped[name];return`${name}×${g.qty}`;}).join('、');
+      rows.push(`<div class="spb-row"><span class="spb-name">${m}</span><span class="spb-items">${itemText}</span><span class="spb-total">NT$${mt}</span></div>`);
+    });
+    if(rows.length){
+      dhB+=`<div class="sum-person-block"><div style="padding:6px 14px;background:var(--sf2);border-bottom:1px solid var(--bd);font-size:11px;font-weight:700;color:var(--hint);letter-spacing:.06em;">${dept.name}</div>${rows.join('')}</div>`;
+    }
+  });
+  if(unlockedB>0)dhB+=`<div style="background:var(--al);border:1px solid var(--amber);border-radius:var(--rs);padding:10px 14px;margin-top:8px;font-size:12px;color:var(--amber);">⏳ 尚有 ${unlockedB} 人未送出訂單，送出後才會顯示在總覽</div>`;
+  document.getElementById('deptSummaryB').innerHTML=dhB||'<div class="empty">尚無訂單</div>';
+
+  /* ── C：彙整清單（原版，同品項合計份數）── */
   const all={};
   depts.forEach(d=>d.members.forEach(m=>{
-    if(!isLocked(d.name,m)) return;
-    const o=getOrder(d.name,m);
-    const rice=o.rice||'正常';
+    if(!isLocked(d.name,m))return;
+    const o=getOrder(d.name,m);const rice=o.rice||'正常';
     Object.keys(o.items||{}).forEach(k=>{
-      if(isAddonKey(k)){
-        const addonN=getAddonName(k);
-        const addonPrice=parseOptPrice(addonN);
-        const addonDN=getOptDisplayName(addonN);
-        if(addonPrice>0){
-          const lb='+ '+addonDN;
-          if(!all[lb])all[lb]={label:lb,price:addonPrice,qty:0};
-          all[lb].qty+=(o.items[k]||0);
-        }
-        return;
-      }
+      if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);const addonDN=getOptDisplayName(addonN);if(addonPrice>0){const lb='+ '+addonDN;if(!all[lb])all[lb]={label:lb,price:addonPrice,qty:0};all[lb].qty+=(o.items[k]||0);}return;}
       const it=findItemByKey(r?.items,k);
-      if(it){
-        const optN=getOptName(o,k);
-        const label=buildLabelGlobal(it,optN,rice);
-        if(!all[label]) all[label]={label,price:getItemTotalPrice(it,optN),qty:0};
-        all[label].qty+=o.items[k];
-      }
+      if(it){const optN=getOptName(o,k);const label=buildLabel(it,optN,rice);if(!all[label])all[label]={label,price:getItemTotalPrice(it,optN),qty:0};all[label].qty+=o.items[k];}
     });
   }));
-
   const entries=Object.values(all).sort((a,b)=>a.label.localeCompare(b.label,'zh-Hant'));
   document.getElementById('mergedList').innerHTML=entries.length
-    ? entries.map(e=>`<div class="orow">
-        <span class="orow-name" style="font-size:13px;">${e.label}</span>
-        <span class="orow-sub" style="font-size:13px;font-weight:600;">× ${e.qty}　NT$${e.price*e.qty}</span>
-      </div>`).join('')
-    : '<div class="empty">尚未選擇餐點</div>';
+    ?entries.map(e=>`<div class="orow"><span class="orow-name">${e.label}</span><span class="orow-sub" style="font-size:13px;font-weight:600;">× ${e.qty}　NT$${e.price*e.qty}</span></div>`).join('')
+    :'<div class="empty">尚未選擇餐點</div>';
 
+  // 使用 A 的 gT/gC（已送出）
   document.getElementById('totalAmt').textContent='NT$'+gT;
   document.getElementById('totalCnt').textContent='共 '+gC+' 份';
   document.getElementById('hdrAmt').textContent='NT$'+gT;
@@ -999,543 +770,175 @@ function renderSummary(){
 function renderHistory(){
   const div=document.getElementById('historyList');
   if(!history.length){div.innerHTML='<div class="empty">尚無歷史訂單</div>';return;}
-  div.innerHTML=[...history].reverse().map((h,i)=>`<div class="hcard">
-    <div class="hcard-head"><div><div class="hcard-title">${h.label}</div><div class="hcard-meta">共${h.count}份 · NT$${h.total} · ${h.date}</div></div>
-    <button class="hdel" onclick="delHist(${history.length-1-i})">刪除</button></div>
-    <div class="hcard-detail">${h.detail}</div></div>`).join('');
+  div.innerHTML=[...history].reverse().map((h,i)=>`<div class="hcard"><div class="hcard-head"><div><div class="hcard-title">${h.label}</div><div class="hcard-meta">共${h.count}份 · NT$${h.total} · ${h.date}</div></div><button class="hdel" onclick="delHist(${history.length-1-i})">刪除</button></div><div class="hcard-detail">${h.detail}</div></div>`).join('');
 }
 function renderAdmin(){
   if(!isAdmin)return;
-  document.getElementById('weekSchedule').innerHTML=DAY_KEYS.map((d,i)=>{
-    const rid=schedule[d];const r=rid?allRests[rid]:null;
-    return `<div class="wday-cell${curDayIdx===i?' active':''}" onclick="openSchedModal(${i})">
-      <div class="wlabel">週${DAYS[i]}</div>
-      ${r?`<div class="wrest">${r.name}</div>`:`<div class="wempty">未設定</div>`}
-    </div>`;
-  }).join('');
+  document.getElementById('weekSchedule').innerHTML=DAY_KEYS.map((d,i)=>{const rid=schedule[d];const r=rid?allRests[rid]:null;return`<div class="wday-cell${curDayIdx===i?' active':''}" onclick="openSchedModal(${i})"><div class="wlabel">週${DAYS[i]}</div>${r?`<div class="wrest">${r.name}</div>`:`<div class="wempty">未設定</div>`}</div>`;}).join('');
   const rids=Object.keys(allRests);
   const importSel=document.getElementById('importRestSelect');
-  if(importSel){
-    importSel.innerHTML=rids.length
-      ?rids.map(rid=>`<div class="chip${rid===importTargetRid?' g':''}" onclick="selectImportTarget('${rid}')">${allRests[rid].name}</div>`).join('')
-      :'<span style="font-size:12px;color:var(--hint);">尚無店家，請先建立</span>';
-  }
+  if(importSel)importSel.innerHTML=rids.length?rids.map(rid=>`<div class="chip${rid===importTargetRid?' g':''}" onclick="selectImportTarget('${rid}')">${allRests[rid].name}</div>`).join(''):'<span style="font-size:12px;color:var(--hint);">尚無店家，請先建立</span>';
   const lbl=document.getElementById('importTargetLabel');
-  if(lbl){
-    lbl.textContent=importTargetRid&&allRests[importTargetRid]
-      ?'目前選擇：'+allRests[importTargetRid].name+' （上傳 CSV 將匯入此店家）'
-      :'← 請先點選上方店家';
-    lbl.style.color=importTargetRid?'var(--green)':'var(--red)';
-  }
-  document.getElementById('allRestsList').innerHTML=rids.length
-    ?rids.map(rid=>`<div class="del-tag" style="cursor:pointer;" onclick="openEditRest('${rid}')">✎ ${allRests[rid].name}<button onclick="event.stopPropagation();delRest('${rid}')">×</button></div>`).join('')
-    :'<span style="font-size:12px;color:var(--hint);">尚無店家</span>';
+  if(lbl){lbl.textContent=importTargetRid&&allRests[importTargetRid]?'目前選擇：'+allRests[importTargetRid].name+' （上傳 CSV 將匯入此店家）':'← 請先點選上方店家';lbl.style.color=importTargetRid?'var(--green)':'var(--red)';}
+  document.getElementById('allRestsList').innerHTML=rids.length?rids.map(rid=>`<div class="del-tag" style="cursor:pointer;" onclick="openEditRest('${rid}')">✎ ${allRests[rid].name}<button onclick="event.stopPropagation();delRest('${rid}')">×</button></div>`).join(''):'<span style="font-size:12px;color:var(--hint);">尚無店家</span>';
   if(editingRid&&allRests[editingRid]){
     const r=allRests[editingRid];
     document.getElementById('editRestSection').style.display='';
     document.getElementById('editRestNameLabel').textContent=r.name;
-    document.getElementById('editRestImgs').innerHTML=(r.images||[]).map((img,i)=>
-      `<div class="preview-thumb"><img src="${img}" onclick="openViewer('${img}')"><button class="rm" onclick="removeImg('${editingRid}',${i})">×</button></div>`
-    ).join('');
-    document.getElementById('aItemList').innerHTML=(r.items||[]).map((it,i)=>
-      `<div class="del-tag">${it.name} NT$${it.price}(${it.cat})<button onclick="delItem('${editingRid}',${i})">×</button></div>`
-    ).join('')||'<span style="font-size:12px;color:var(--hint);">尚無餐點（上傳圖片後 AI 自動新增）</span>';
-  }else{
-    document.getElementById('editRestSection').style.display='none';
-  }
+    document.getElementById('editRestImgs').innerHTML=(r.images||[]).map((img,i)=>`<div class="preview-thumb"><img src="${img}" onclick="openViewer('${img}')"><button class="rm" onclick="removeImg('${editingRid}',${i})">×</button></div>`).join('');
+    document.getElementById('aItemList').innerHTML=(r.items||[]).map((it,i)=>`<div class="del-tag">${it.name} NT$${it.price}(${it.cat})<button onclick="delItem('${editingRid}',${i})">×</button></div>`).join('')||'<span style="font-size:12px;color:var(--hint);">尚無餐點</span>';
+  }else{document.getElementById('editRestSection').style.display='none';}
   const ds=document.getElementById('aDeptSel');
   if(ds)ds.innerHTML='<option value="">選擇部門</option>'+depts.map(d=>`<option>${d.name}</option>`).join('');
-  document.getElementById('aDeptList').innerHTML=depts.map((dept,di)=>`
-    <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:8px 10px;margin-bottom:6px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-        <span style="font-size:13px;font-weight:600;">${dept.name}</span>
-        <button onclick="delDept('${dept.name}')" style="font-size:11px;color:var(--red);border:none;background:none;cursor:pointer;">刪除部門</button>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;">
-        ${dept.members.map((m,mi)=>`<div class="del-tag">${m}<button onclick="delMember('${dept.name}','${m}')">×</button></div>`).join('')}
-      </div>
-    </div>`).join('');
+  document.getElementById('aDeptList').innerHTML=depts.map((dept,di)=>`<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:8px 10px;margin-bottom:6px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><span style="font-size:13px;font-weight:600;">${dept.name}</span><button onclick="delDept('${dept.name}')" style="font-size:11px;color:var(--red);border:none;background:none;cursor:pointer;">刪除部門</button></div><div style="display:flex;flex-wrap:wrap;gap:4px;">${dept.members.map((m,mi)=>`<div class="del-tag">${m}<button onclick="delMember('${dept.name}','${m}')">×</button></div>`).join('')}</div></div>`).join('');
 }
 
+/* ── user actions ── */
 function selDay(i){curDayIdx=i;curCat='全部';curMember=null;renderAll();if(isAdmin)renderAdmin();}
-function selMember(dept,name){
-  if(isLocked(dept,name)){
-    showToast(name+' 已送出訂單，無法更改');
-    return;
-  }
-  curMember={dept,name};
-  renderDepts();renderMenu();
-}
+function selMember(dept,name){if(isLocked(dept,name)){showToast(name+' 已送出訂單，無法更改');return;}curMember={dept,name};renderDepts();renderMenu();}
 function selCat(c){curCat=c;renderCatBar();renderMenu();}
 function toggleDept(di){const el=document.getElementById('dm'+di);el.style.display=el.style.display==='none'?'':'none';}
+function clickItem(id){if(!curMember){showToast('請先選擇你的名字');return;}addItemToOrder(id,null);}
+function clickItemOpt(id,opt,e){e.stopPropagation();if(!curMember){showToast('請先選擇你的名字');return;}addItemToOrder(id,opt);}
+function addItemToOrder(id,option){const key=option?String(id)+'_'+option:String(id);mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};o.items[key]=(o.items[key]||0)+1;});renderDepts();renderMenu();updateHdr();renderWeek();}
+function closeOptionModal(){document.getElementById('optionModal').classList.remove('open');}
+function chQty(key,d,e){e.stopPropagation();if(!curMember)return;mutOrder(curMember.dept,curMember.name,o=>{const nv=Math.max(0,(o.items[key]||0)+d);if(nv===0){delete o.items[key];if(o.itemOptions)delete o.itemOptions[key];}else o.items[key]=nv;});renderDepts();renderMenu();updateHdr();renderWeek();}
+function setRice(opt,e){e.stopPropagation();if(!curMember)return;mutOrder(curMember.dept,curMember.name,o=>{o.rice=opt;});renderMenu();}
+function toggleAddon(sid,addon,e){e.stopPropagation();if(!curMember)return;const ak=sid+'_ADD_'+addon;mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};const baseQty=o.items[sid]||0;if(baseQty===0){showToast('請先選擇主餐');return;}if(o.items[ak])delete o.items[ak];else o.items[ak]=baseQty;});renderDepts();renderMenu();updateHdr();}
+function clearDay(){if(!confirm('確定清空今天所有訂單？'))return;const rid=todayRid();if(rid&&orders[dk()])delete orders[dk()][rid];lockedOrders[dk()]={};pushOrders();pushLocked();renderAll();renderSummary();showToast('已清空');}
 
-function clickItem(id){
-  if(!curMember){showToast('請先選擇你的名字');return;}
-  addItemToOrder(id, null);
-}
-
-function clickItemOpt(id, opt, e){
-  e.stopPropagation();
-  if(!curMember){showToast('請先選擇你的名字');return;}
-  addItemToOrder(id, opt);
-}
-
-function addItemToOrder(id, option){
-  const key=option?String(id)+'_'+option:String(id);
-  mutOrder(curMember.dept,curMember.name,o=>{
-    if(!o.items) o.items={};
-    o.items[key]=(o.items[key]||0)+1;
-  });
-  renderDepts();renderMenu();updateHdr();renderWeek();
-}
-
-function closeOptionModal(){ document.getElementById('optionModal').classList.remove('open'); }
-function chQty(key,d,e){
-  e.stopPropagation();if(!curMember)return;
-  mutOrder(curMember.dept,curMember.name,o=>{
-    const nv=Math.max(0,(o.items[key]||0)+d);
-    if(nv===0){
-      delete o.items[key];
-      if(o.itemOptions) delete o.itemOptions[key];
-    } else o.items[key]=nv;
-  });
-  renderDepts();renderMenu();updateHdr();renderWeek();
-}
-function setRice(opt,e){
-  e.stopPropagation();if(!curMember)return;
-  mutOrder(curMember.dept,curMember.name,o=>{o.rice=opt;});renderMenu();
-}
-function toggleAddon(sid,addon,e){
-  e.stopPropagation();if(!curMember)return;
-  const ak=sid+'_ADD_'+addon;
-  mutOrder(curMember.dept,curMember.name,o=>{
-    if(!o.items)o.items={};
-    const baseQty=o.items[sid]||0;
-    if(baseQty===0){showToast('請先選擇主餐');return;}
-    if(o.items[ak]) delete o.items[ak];
-    else o.items[ak]=baseQty;
-  });
-  renderDepts();renderMenu();updateHdr();
-}
-function clearDay(){
-  if(!confirm('確定清空今天所有訂單（含所有人的送出狀態）？'))return;
-  const rid=todayRid();if(rid&&orders[dk()])delete orders[dk()][rid];
-  lockedOrders[dk()]={};
-  pushOrders();pushLocked();renderAll();renderSummary();showToast('已清空');
-}
 function copyOrder(){
-  const r=todayRest();
-  let lines=[`【便當訂單 週${DAYS[curDayIdx]}${r?' · '+r.name:''}】`];
-  let total=0,cnt=0;
-  depts.forEach(dept=>{
-    let dl=[];
-    dept.members.forEach(m=>{
-      if(!isLocked(dept.name,m)) return;
-      let mi=[],mt=0;
-      const o=getOrder(dept.name,m);
-      const rice2=o.rice||'正常';
-      Object.keys(o.items||{}).forEach(k=>{
-        if(isAddonKey(k)){
-          const addonN=getAddonName(k);
-          const addonPrice=parseOptPrice(addonN);
-          if(addonPrice>0){mt+=addonPrice*(o.items[k]||0);mi.push('+'+getOptDisplayName(addonN)+' ×'+(o.items[k]||0));}
-          return;
-        }
-        const it=findItemByKey(r?.items,k);
-        if(it){
-          const optN=getOptName(o,k);
-          mt+=getItemTotalPrice(it,optN)*o.items[k];cnt+=o.items[k];
-          let lbl=it.name;
-          if(optN) lbl+=' | '+getOptDisplayName(optN);
-          const itHasRice=it.riceOptions&&it.riceOptions.length>0;
-          if(itHasRice&&rice2!=='正常') lbl+=' | '+rice2;
-          mi.push(lbl+' ×'+o.items[k]);
-        }
-      });
-      if(mi.length){total+=mt;dl.push(`  ${m}：${mi.join('、')}（NT$${mt}）`);}
-    });
-    if(dl.length){lines.push(`▸ ${dept.name}`);lines.push(...dl);}
-  });
-  const allC={};
-  depts.forEach(d=>d.members.forEach(m=>{
-    if(!isLocked(d.name,m)) return;
-    const oC=getOrder(d.name,m);
-    const rC=oC.rice||'正常';
-    Object.keys(oC.items||{}).forEach(k=>{
-      const itC=findItemByKey(r?.items,k);
-      if(itC){
-        const optNC=getOptName(oC,k);
-        let lbl=itC.name;
-        if(optNC) lbl+=' | '+getOptDisplayName(optNC);
-        const cHasRice=itC.riceOptions&&itC.riceOptions.length>0;
-        if(cHasRice&&rC!=='正常') lbl+=' | '+rC;
-        if(!allC[lbl]) allC[lbl]={qty:0,price:getItemTotalPrice(itC,optNC)};
-        allC[lbl].qty+=oC.items[k];
-      }
-    });
-  }));
-  lines.push('─'.repeat(22));
-  lines.push('【彙整清單（叫飯用）】');
-  Object.entries(allC).sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant')).forEach(([lbl,v])=>{
-    lines.push('  '+lbl+' × '+v.qty+'　NT$'+(v.price*v.qty));
-  });
-  lines.push('─'.repeat(22));
-  lines.push('合計：'+cnt+' 份　NT$'+total);
+  const r=todayRest();let lines=[`【便當訂單 週${DAYS[curDayIdx]}${r?' · '+r.name:''}】`];let total=0,cnt=0;
+  depts.forEach(dept=>{let dl=[];dept.members.forEach(m=>{if(!isLocked(dept.name,m))return;let mi=[],mt=0;const o=getOrder(dept.name,m);const rice2=o.rice||'正常';
+    Object.keys(o.items||{}).forEach(k=>{if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);if(addonPrice>0){mt+=addonPrice*(o.items[k]||0);mi.push('+'+getOptDisplayName(addonN)+' ×'+(o.items[k]||0));}return;}const it=findItemByKey(r?.items,k);if(it){const optN=getOptName(o,k);mt+=getItemTotalPrice(it,optN)*o.items[k];cnt+=o.items[k];let lbl=it.name;if(optN)lbl+=' | '+getOptDisplayName(optN);const itHasRice=it.riceOptions&&it.riceOptions.length>0;if(itHasRice&&rice2!=='正常')lbl+=' | '+rice2;mi.push(lbl+' ×'+o.items[k]);}});
+    if(mi.length){total+=mt;dl.push(`  ${m}：${mi.join('、')}（NT$${mt}）`);}});if(dl.length){lines.push(`▸ ${dept.name}`);lines.push(...dl);}});
+  const allC={};depts.forEach(d=>d.members.forEach(m=>{if(!isLocked(d.name,m))return;const oC=getOrder(d.name,m);const rC=oC.rice||'正常';Object.keys(oC.items||{}).forEach(k=>{const itC=findItemByKey(r?.items,k);if(itC){const optNC=getOptName(oC,k);let lbl=itC.name;if(optNC)lbl+=' | '+getOptDisplayName(optNC);const cHasRice=itC.riceOptions&&itC.riceOptions.length>0;if(cHasRice&&rC!=='正常')lbl+=' | '+rC;if(!allC[lbl])allC[lbl]={qty:0,price:getItemTotalPrice(itC,optNC)};allC[lbl].qty+=oC.items[k];}});}));
+  lines.push('─'.repeat(22),'【彙整清單】');Object.entries(allC).sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant')).forEach(([lbl,v])=>lines.push('  '+lbl+' × '+v.qty+'　NT$'+(v.price*v.qty)));
+  lines.push('─'.repeat(22),'合計：'+cnt+' 份　NT$'+total);
   navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('已複製！貼到 Line'));
 }
 function saveHistory(){
   const r=todayRest();let total=0,cnt=0,items=[];
-  depts.forEach(d=>d.members.forEach(m=>{
-    const o=getOrder(d.name,m);
-    Object.keys(o.items||{}).forEach(k=>{const it=findItemByKey(r?.items,k);
-        if(it){const optN=getOptName(o,k);total+=getItemTotalPrice(it,optN)*o.items[k];cnt+=o.items[k];
-          items.push(getItemLabel(it,optN)+'×'+o.items[k]);}});
-  }));
+  depts.forEach(d=>d.members.forEach(m=>{const o=getOrder(d.name,m);Object.keys(o.items||{}).forEach(k=>{const it=findItemByKey(r?.items,k);if(it){const optN=getOptName(o,k);total+=getItemTotalPrice(it,optN)*o.items[k];cnt+=o.items[k];items.push(getItemLabel(it,optN)+'×'+o.items[k]);}});}));
   if(!cnt){showToast('訂單是空的');return;}
-  const now=new Date();
-  history.push({label:`週${DAYS[curDayIdx]} ${r?.name||''}`,total,count:cnt,detail:items.join('、'),date:`${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`});
+  const now=new Date();history.push({label:`週${DAYS[curDayIdx]} ${r?.name||''}`,total,count:cnt,detail:items.join('、'),date:`${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`});
   localStorage.setItem('lunchH7',JSON.stringify(history));showToast('已儲存歷史');
 }
 function delHist(i){history.splice(i,1);localStorage.setItem('lunchH7',JSON.stringify(history));renderHistory();}
 
+/* ── admin actions ── */
+function selectImportTarget(rid){importTargetRid=rid;renderAdmin();}
 function openSchedModal(di){
-  const rids=Object.keys(allRests);
-  if(!rids.length){showToast('請先新增店家');return;}
+  const rids=Object.keys(allRests);if(!rids.length){showToast('請先新增店家');return;}
   document.getElementById('modalTitle').textContent='設定週'+DAYS[di]+'的店家';
-  document.getElementById('modalBody').innerHTML=`<select id="schedSel" style="width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:14px;margin-bottom:10px;background:var(--sf);color:var(--tx);">
-    <option value="">（不安排）</option>
-    ${rids.map(rid=>`<option value="${rid}"${schedule[DAY_KEYS[di]]===rid?' selected':''}>${allRests[rid].name}</option>`).join('')}
-  </select>`;
-  _modalCb=()=>{
-    const v=document.getElementById('schedSel').value;
-    schedule[DAY_KEYS[di]]=v||null;pushSchedule();
-    if(di===curDayIdx)renderAll();
-    renderAdmin();showToast('已設定週'+DAYS[di]);return true;
-  };
+  document.getElementById('modalBody').innerHTML=`<select id="schedSel" style="width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:14px;margin-bottom:10px;background:var(--sf);color:var(--tx);"><option value="">（不安排）</option>${rids.map(rid=>`<option value="${rid}"${schedule[DAY_KEYS[di]]===rid?' selected':''}>${allRests[rid].name}</option>`).join('')}</select>`;
+  _modalCb=()=>{const v=document.getElementById('schedSel').value;schedule[DAY_KEYS[di]]=v||null;pushSchedule();if(di===curDayIdx)renderAll();renderAdmin();showToast('已設定週'+DAYS[di]);return true;};
   document.getElementById('modalBg').classList.add('open');
 }
-
-function openEditRest(rid){
-  editingRid=rid;renderAdmin();
-  document.getElementById('editRestSection').scrollIntoView({behavior:'smooth'});
-}
-
-function adminCreateRest(){
-  const name=document.getElementById('aRestName').value.trim();
-  if(!name){showToast('請輸入店家名稱');return;}
-  const rid='r'+rIdSeq++;
-  allRests[rid]={id:rid,name,items:[],images:[]};
-  pushRests();document.getElementById('aRestName').value='';
-  editingRid=rid;renderAdmin();showToast('已建立店家：'+name);
-  return rid;
-}
-
-function adminCreateAndUpload(){
-  const name=document.getElementById('aRestName').value.trim();
-  if(!name){showToast('請先輸入店家名稱');return;}
-  const rid='r'+rIdSeq++;
-  allRests[rid]={id:rid,name,items:[],images:[]};
-  pushRests();
-  document.getElementById('aRestName').value='';
-  editingRid=rid;
-  renderAdmin();
-  showToast('已建立「'+name+'」，請選擇 CSV 檔案');
-  document.getElementById('csvFileInput').click();
-}
-function delRest(rid){
-  if(!confirm(`確定刪除「${allRests[rid]?.name}」？`))return;
-  delete allRests[rid];
-  DAY_KEYS.forEach(d=>{if(schedule[d]===rid)schedule[d]=null;});
-  pushRests();pushSchedule();if(editingRid===rid)editingRid=null;
-  renderAll();renderAdmin();showToast('已刪除');
-}
+function openEditRest(rid){editingRid=rid;renderAdmin();document.getElementById('editRestSection').scrollIntoView({behavior:'smooth'});}
+function adminCreateRest(){const name=document.getElementById('aRestName').value.trim();if(!name){showToast('請輸入店家名稱');return;}const rid='r'+rIdSeq++;allRests[rid]={id:rid,name,items:[],images:[]};pushRests();document.getElementById('aRestName').value='';editingRid=rid;renderAdmin();showToast('已建立店家：'+name);}
+function delRest(rid){if(!confirm(`確定刪除「${allRests[rid]?.name}」？`))return;delete allRests[rid];DAY_KEYS.forEach(d=>{if(schedule[d]===rid)schedule[d]=null;});pushRests();pushSchedule();if(editingRid===rid)editingRid=null;renderAll();renderAdmin();showToast('已刪除');}
 function adminAddItem(){
-  const name=document.getElementById('aItemName').value.trim();
-  const price=parseInt(document.getElementById('aItemPrice').value);
-  const cat=document.getElementById('aItemCat').value;
-  const optStr=document.getElementById('aItemOptions').value.trim();
-  const riceStr=document.getElementById('aItemRiceOptions').value.trim();
-  if(!name||isNaN(price)||price<=0){showToast('請輸入名稱與價格');return;}
-  if(!editingRid){showToast('請先選擇店家');return;}
+  const name=document.getElementById('aItemName').value.trim();const price=parseInt(document.getElementById('aItemPrice').value);const cat=document.getElementById('aItemCat').value;
+  const optStr=document.getElementById('aItemOptions').value.trim();const riceStr=document.getElementById('aItemRiceOptions').value.trim();
+  if(!name||isNaN(price)||price<=0){showToast('請輸入名稱與價格');return;}if(!editingRid){showToast('請先選擇店家');return;}
   if(!allRests[editingRid].items)allRests[editingRid].items=[];
   const item={id:iIdSeq++,name,price,cat};
-  if(optStr){
-    item.options=optStr.split(/[,，|｜]/).map(o=>o.trim()).filter(Boolean);
-  }
-  if(riceStr){
-    item.riceOptions=riceStr.split(/[,，|｜]/).map(o=>o.trim()).filter(Boolean);
-  }
+  if(optStr)item.options=optStr.split(/[,，|｜]/).map(o=>o.trim()).filter(Boolean);
+  if(riceStr)item.riceOptions=riceStr.split(/[,，|｜]/).map(o=>o.trim()).filter(Boolean);
   const addonStr=document.getElementById('aItemAddons')?.value.trim()||'';
-  if(addonStr){
-    const addons=addonStr.split(/[|｜]/).map(a=>a.trim()).filter(Boolean);
-    if(addons.length) item.addons=addons;
-  }
-  allRests[editingRid].items.push(item);
-  pushRests();
-  document.getElementById('aItemName').value='';
-  document.getElementById('aItemPrice').value='';
-  document.getElementById('aItemOptions').value='';
-  document.getElementById('aItemRiceOptions').value='';
-  const adEl=document.getElementById('aItemAddons');if(adEl)adEl.value='';
-  renderCatBar();renderMenu();renderAdmin();
-  showToast('已新增 '+name);
+  if(addonStr){const addons=addonStr.split(/[|｜]/).map(a=>a.trim()).filter(Boolean);if(addons.length)item.addons=addons;}
+  allRests[editingRid].items.push(item);pushRests();
+  document.getElementById('aItemName').value='';document.getElementById('aItemPrice').value='';document.getElementById('aItemOptions').value='';document.getElementById('aItemRiceOptions').value='';const adEl=document.getElementById('aItemAddons');if(adEl)adEl.value='';
+  renderCatBar();renderMenu();renderAdmin();showToast('已新增 '+name);
 }
 function delItem(rid,i){allRests[rid].items.splice(i,1);pushRests();renderMenu();renderAdmin();showToast('已刪除');}
 function removeImg(rid,i){allRests[rid].images.splice(i,1);pushRests();renderMenuImg();renderAdmin();showToast('已移除');}
-
-function adminAddDept(){
-  const name=document.getElementById('aNewDeptName').value.trim();
-  if(!name){showToast('請輸入部門名稱');return;}
-  if(depts.find(d=>d.name===name)){showToast('部門已存在');return;}
-  depts.push({name,members:[]});
-  document.getElementById('aNewDeptName').value='';
-  pushDepts();
-  showToast('已新增部門：'+name);
-}
-function delDept(deptName){
-  if(!confirm('確定刪除「'+deptName+'」部門？'))return;
-  const idx=depts.findIndex(d=>d.name===deptName);
-  if(idx<0){showToast('找不到部門');return;}
-  depts.splice(idx,1);
-  pushDepts();
-  showToast('已刪除部門：'+deptName);
-}
-function adminAddMember(){
-  const dn=document.getElementById('aDeptSel').value;
-  const name=document.getElementById('aMemberName').value.trim();
-  if(!dn){showToast('請選擇部門');return;}
-  if(!name){showToast('請輸入人員姓名');return;}
-  const dept=depts.find(d=>d.name===dn);
-  if(!dept){showToast('找不到部門');return;}
-  if(!dept.members) dept.members=[];
-  if(dept.members.includes(name)){showToast('人員已存在');return;}
-  dept.members.push(name);
-  document.getElementById('aMemberName').value='';
-  pushDepts();
-  showToast('已新增 '+dn+'－'+name);
-}
-function delMember(deptName,memberName){
-  const dept=depts.find(d=>d.name===deptName);
-  if(!dept){showToast('找不到部門');return;}
-  dept.members=(dept.members||[]).filter(m=>m!==memberName);
-  pushDepts();
-  showToast('已刪除：'+memberName);
-}
-function adminChangePwd(){
-  const p=document.getElementById('aNewPwd').value.trim();
-  if(!p){showToast('請輸入密碼');return;}
-  localStorage.setItem('adminPwd',p);document.getElementById('aNewPwd').value='';showToast('密碼已更新');
-}
+function adminAddDept(){const name=document.getElementById('aNewDeptName').value.trim();if(!name){showToast('請輸入部門名稱');return;}if(depts.find(d=>d.name===name)){showToast('部門已存在');return;}depts.push({name,members:[]});document.getElementById('aNewDeptName').value='';pushDepts();showToast('已新增部門：'+name);}
+function delDept(deptName){if(!confirm('確定刪除「'+deptName+'」部門？'))return;const idx=depts.findIndex(d=>d.name===deptName);if(idx<0)return;depts.splice(idx,1);pushDepts();showToast('已刪除部門：'+deptName);}
+function adminAddMember(){const dn=document.getElementById('aDeptSel').value;const name=document.getElementById('aMemberName').value.trim();if(!dn){showToast('請選擇部門');return;}if(!name){showToast('請輸入人員姓名');return;}const dept=depts.find(d=>d.name===dn);if(!dept)return;if(!dept.members)dept.members=[];if(dept.members.includes(name)){showToast('人員已存在');return;}dept.members.push(name);document.getElementById('aMemberName').value='';pushDepts();showToast('已新增 '+dn+'－'+name);}
+function delMember(deptName,memberName){const dept=depts.find(d=>d.name===deptName);if(!dept)return;dept.members=(dept.members||[]).filter(m=>m!==memberName);pushDepts();showToast('已刪除：'+memberName);}
+function adminChangePwd(){const p=document.getElementById('aNewPwd').value.trim();if(!p){showToast('請輸入密碼');return;}localStorage.setItem('adminPwd',p);document.getElementById('aNewPwd').value='';showToast('密碼已更新');}
 function adminLogout(){isAdmin=false;sessionStorage.removeItem('isAdmin');updAdmin();switchTab('order');showToast('已登出');}
 
+/* ── CSV ── */
 function toDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(file);});}
 function dragOver(e){e.preventDefault();document.getElementById('uploadZone').classList.add('drag');}
 function dragLeave(){document.getElementById('uploadZone').classList.remove('drag');}
 function dropCsv(e){e.preventDefault();dragLeave();const f=e.dataTransfer.files[0];if(f)processCsv(f);}
 function handleCsvUpload(e){const f=e.target.files[0];if(f)processCsv(f);e.target.value='';}
 function handleReuploadCsv(e){
-  const f=e.target.files[0];
-  if(!f) return;
+  const f=e.target.files[0];if(!f)return;
   if(editingRid&&allRests[editingRid]){
-    const rid=todayRid();
-    const todayOrders=rid?orders[dk()]?.[rid]:null;
-    const hasOrders=todayOrders&&Object.keys(todayOrders).some(dept=>
-      Object.keys(todayOrders[dept]||{}).some(m=>
-        Object.keys(todayOrders[dept][m]?.items||{}).length>0
-      )
-    );
-    if(hasOrders){
-      const warnMsg=[
-        '警告：今日已有人點餐！',
-        '',
-        '重新匯入菜單後，已點餐的資料將無法在總覽顯示（item id 不符）。',
-        '',
-        '建議先點「清空今天」再匯入菜單。',
-        '',
-        '確定要繼續匯入嗎？'
-      ].join('\n');
-      const proceed=confirm(warnMsg);
-      if(!proceed){e.target.value='';return;}
-    }
-    if(confirm('重新匯入將清除「'+allRests[editingRid].name+'」現有餐點，確定嗎？')){
-      allRests[editingRid].items=[];
-      processCsv(f, document.getElementById('reuploadBox'), document.getElementById('reuploadBoxText'));
-    }
+    const rid=todayRid();const todayOrders=rid?orders[dk()]?.[rid]:null;
+    const hasOrders=todayOrders&&Object.keys(todayOrders).some(dept=>Object.keys(todayOrders[dept]||{}).some(m=>Object.keys(todayOrders[dept][m]?.items||{}).length>0));
+    if(hasOrders){if(!confirm('警告：今日已有人點餐！\n重新匯入後建議先清空今日訂單。\n確定繼續？')){e.target.value='';return;}}
+    if(confirm('重新匯入將清除「'+allRests[editingRid].name+'」現有餐點，確定嗎？')){allRests[editingRid].items=[];processCsv(f,document.getElementById('reuploadBox'),document.getElementById('reuploadBoxText'));}
   }
   e.target.value='';
 }
-
-function handleAddMoreImg(e){
-  if(!editingRid){showToast('請先選擇店家');return;}
-  [...e.target.files].forEach(async f=>{
-    const du=await toDataURL(f);
-    if(!allRests[editingRid].images)allRests[editingRid].images=[];
-    allRests[editingRid].images.push(du);
-    pushRests();renderMenuImg();renderAdmin();
-  });
-  e.target.value='';
-}
-
-function processCsv(file, box, txt){
-  if(!box) box=document.getElementById('importBox');
-  if(!txt) txt=document.getElementById('importBoxText');
-
+function handleAddMoreImg(e){if(!editingRid){showToast('請先選擇店家');return;}[...e.target.files].forEach(async f=>{const du=await toDataURL(f);if(!allRests[editingRid].images)allRests[editingRid].images=[];allRests[editingRid].images.push(du);pushRests();renderMenuImg();renderAdmin();});e.target.value='';}
+function processCsv(file,box,txt){
+  if(!box)box=document.getElementById('importBox');if(!txt)txt=document.getElementById('importBoxText');
   const targetRid=importTargetRid||editingRid;
-  if(!targetRid || !allRests[targetRid]){
-    box.className='ai-box show err';
-    txt.textContent='❌ 請先在「步驟二」選擇要匯入的店家';
-    setTimeout(()=>box.className='ai-box',5000);
-    return;
-  }
-
-  box.className='ai-box show';
-  txt.textContent='📄 讀取檔案中...';
-
+  if(!targetRid||!allRests[targetRid]){box.className='ai-box show err';txt.textContent='❌ 請先選擇要匯入的店家';setTimeout(()=>box.className='ai-box',5000);return;}
+  box.className='ai-box show';txt.textContent='📄 讀取檔案中...';
   function parseAndImport(text){
     try{
-      const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l&&!l.startsWith('#'));
-      const newItems=[];
-      const errors=[];
-
-      const firstLine=lines[0]||'';
-      const isTab=firstLine.includes('\t');
-      const sep=isTab?'\t':',';
-
-      const headerParts=firstLine.split(sep).map(p=>p.trim());
-      const priceCol=isTab?headerParts[2]:headerParts[1];
+      const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l&&!l.startsWith('#'));const newItems=[],errors=[];
+      const firstLine=lines[0]||'';const isTab=firstLine.includes('\t');const sep=isTab?'\t':',';
+      const headerParts=firstLine.split(sep).map(p=>p.trim());const priceCol=isTab?headerParts[2]:headerParts[1];
       const startIdx=(isNaN(Number((priceCol||'').replace(/[^0-9.]/g,'')))||!priceCol)?1:0;
-
-      lines.slice(startIdx).forEach((line,idx)=>{
-        if(!line) return;
-        const parts=line.split(sep).map(p=>p.trim());
-        let name,price,cat,optStr='';
-        let riceStr='';
-        if(isTab && parts.length>=3){
-          cat=parts[0]; name=parts[1];
-          price=Math.round(Number(parts[2].replace(/[^0-9.]/g,'')));
-          optStr=parts[3]||'';
-          riceStr=parts[4]||'';
-        } else if(!isTab && parts.length>=2){
-          name=parts[0];
-          price=Math.round(Number(parts[1].replace(/[^0-9.]/g,'')));
-          cat=parts[2]||'飯盒';
-          optStr=parts[3]||'';
-          riceStr=parts[4]||'';
-        } else {
-          errors.push('第'+(startIdx+idx+1)+'行格式錯誤'); return;
-        }
-        if(!name){return;}
-        if(isNaN(price)||price<=0){errors.push('第'+(startIdx+idx+1)+'行價格無效');return;}
+      lines.slice(startIdx).forEach((line,idx)=>{if(!line)return;const parts=line.split(sep).map(p=>p.trim());let name,price,cat,optStr='',riceStr='';
+        if(isTab&&parts.length>=3){cat=parts[0];name=parts[1];price=Math.round(Number(parts[2].replace(/[^0-9.]/g,'')));optStr=parts[3]||'';riceStr=parts[4]||'';}
+        else if(!isTab&&parts.length>=2){name=parts[0];price=Math.round(Number(parts[1].replace(/[^0-9.]/g,'')));cat=parts[2]||'飯盒';optStr=parts[3]||'';riceStr=parts[4]||'';}
+        else{errors.push('第'+(startIdx+idx+1)+'行格式錯誤');return;}
+        if(!name)return;if(isNaN(price)||price<=0){errors.push('第'+(startIdx+idx+1)+'行價格無效');return;}
         const fullName=(isTab&&cat&&cat!==name)?name+'('+cat+')':name;
         const item={id:iIdSeq++,name:fullName,price,cat:cat||'飯盒'};
-        if(optStr){
-          const opts=optStr.split('|').map(o=>o.trim()).filter(Boolean);
-          if(opts.length) item.options=opts;
-        }
-        if(riceStr){
-          const rices=riceStr.split('|').map(o=>o.trim()).filter(Boolean);
-          if(rices.length) item.riceOptions=rices;
-        }
+        if(optStr){const opts=optStr.split('|').map(o=>o.trim()).filter(Boolean);if(opts.length)item.options=opts;}
+        if(riceStr){const rices=riceStr.split('|').map(o=>o.trim()).filter(Boolean);if(rices.length)item.riceOptions=rices;}
         const addonStr2=isTab?(parts[5]||''):(parts[5]||'');
-        if(addonStr2){
-          const addons=addonStr2.split('|').map(a=>a.trim()).filter(Boolean);
-          if(addons.length) item.addons=addons;
-        }
+        if(addonStr2){const addons=addonStr2.split('|').map(a=>a.trim()).filter(Boolean);if(addons.length)item.addons=addons;}
         newItems.push(item);
       });
-
-      if(!newItems.length){
-        box.className='ai-box show err';
-        txt.textContent='❌ 沒有讀到有效資料。'+(errors.length?errors[0]:'請確認格式');
-        setTimeout(()=>box.className='ai-box',6000);
-        return;
-      }
-
-      if(!allRests[editingRid].items) allRests[editingRid].items=[];
-      newItems.forEach(ni=>{
-        const exist=allRests[editingRid].items.findIndex(i=>i.name===ni.name);
-        if(exist>=0) allRests[editingRid].items[exist]=ni;
-        else allRests[editingRid].items.push(ni);
-      });
-
-      editingRid=targetRid; pushRests(); renderCatBar(); renderMenu(); renderAdmin();
-      box.className='ai-box show ok';
-      const errMsg=errors.length?' ('+errors.length+'行略過)':'';
-      txt.textContent='✅ 成功匯入 '+newItems.length+' 筆餐點'+errMsg;
+      if(!newItems.length){box.className='ai-box show err';txt.textContent='❌ 沒有讀到有效資料。'+(errors.length?errors[0]:'請確認格式');setTimeout(()=>box.className='ai-box',6000);return;}
+      if(!allRests[targetRid].items)allRests[targetRid].items=[];
+      newItems.forEach(ni=>{const exist=allRests[targetRid].items.findIndex(i=>i.name===ni.name);if(exist>=0)allRests[targetRid].items[exist]=ni;else allRests[targetRid].items.push(ni);});
+      editingRid=targetRid;pushRests();renderCatBar();renderMenu();renderAdmin();
+      box.className='ai-box show ok';txt.textContent='✅ 成功匯入 '+newItems.length+' 筆餐點'+(errors.length?' ('+errors.length+'行略過)':'');
       setTimeout(()=>box.className='ai-box',5000);
-    }catch(err){
-      box.className='ai-box show err';
-      txt.textContent='❌ 解析失敗：'+err.message;
-      setTimeout(()=>box.className='ai-box',5000);
-    }
+    }catch(err){box.className='ai-box show err';txt.textContent='❌ 解析失敗：'+err.message;setTimeout(()=>box.className='ai-box',5000);}
   }
-
   function tryRead(encodings){
-    if(!encodings.length){
-      box.className='ai-box show err';
-      txt.textContent='❌ 無法讀取檔案，請另存為 UTF-8 編碼再試';
-      setTimeout(()=>box.className='ai-box',5000);
-      return;
-    }
-    const enc=encodings[0];
-    const rest=encodings.slice(1);
-    const reader=new FileReader();
-    reader.onload=e=>{
-      let text=e.target.result;
-      if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
-      const badChars=(text.match(/\uFFFD/g)||[]).length;
-      const totalChars=text.replace(/\s/g,'').length;
-      if(badChars>0 && badChars/totalChars>0.05 && rest.length){
-        tryRead(rest); return;
-      }
-      parseAndImport(text);
-    };
-    reader.onerror=()=>tryRead(rest);
-    reader.readAsText(file, enc);
+    if(!encodings.length){box.className='ai-box show err';txt.textContent='❌ 無法讀取檔案，請另存為 UTF-8 編碼再試';setTimeout(()=>box.className='ai-box',5000);return;}
+    const enc=encodings[0];const rest=encodings.slice(1);const reader=new FileReader();
+    reader.onload=e=>{let text=e.target.result;if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);const badChars=(text.match(/\uFFFD/g)||[]).length;const totalChars=text.replace(/\s/g,'').length;if(badChars>0&&badChars/totalChars>0.05&&rest.length){tryRead(rest);return;}parseAndImport(text);};
+    reader.onerror=()=>tryRead(rest);reader.readAsText(file,enc);
   }
-
   tryRead(['UTF-8','Big5','GBK']);
 }
-
 function downloadCsvTemplate(){
-  const rows=[
-    '# 格式：餐點名稱,價格,分類,主食選項,飯量選項,加點選項',
-    '# 主食選項=互斥選一個；飯量選項=選飯量；加點選項=可多選額外加點(名稱:加價)',
-    '# 範例：',
-    '瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵|油麵,正常|半飯|不要飯,加蛋:10|加大:20',
-    '鍋燒肉燥麵,85,鍋燒麵,,,加麵:15|加蛋:10',
-    '雞腿飯,120,飯盒,,正常|半飯|不要飯,',
-    '鮮嫩腿排飯,80,飯盒,飯|麵|烏龍麵,正常|半飯|不要飯,加蛋:10',
-    '打拋豬飯,90,飯盒,,,',
-    '雞排(單點),60,單點,,,',
-    '滷蛋,15,單點,,,',
-  ];
-  const bom='\uFEFF';
-  const blob=new Blob([bom+rows.join('\n')],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='菜單範本.csv';
-  a.click();
+  const rows=['# 格式：餐點名稱,價格,分類,主食選項,飯量選項,加點選項','瑪莎曼咖哩,90,咖哩,飯|麵|烏龍麵|意麵|油麵,正常|半飯|不要飯,加蛋:10|加大:20','鍋燒肉燥麵,85,鍋燒麵,,,加麵:15|加蛋:10','雞腿飯,120,飯盒,,正常|半飯|不要飯,','鮮嫩腿排飯,80,飯盒,飯|麵|烏龍麵,正常|半飯|不要飯,加蛋:10','打拋豬飯,90,飯盒,,,','雞排(單點),60,單點,,,','滷蛋,15,單點,,,'];
+  const bom='\uFEFF';const blob=new Blob([bom+rows.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='菜單範本.csv';a.click();
 }
 
+/* ── image viewer ── */
 function openViewer(src){document.getElementById('imgViewerImg').src=src;document.getElementById('imgViewer').classList.add('open');}
 function closeImgViewer(){document.getElementById('imgViewer').classList.remove('open');}
 
+/* ── login ── */
 function tryAdminLogin(){if(isAdmin){switchTab('admin');return;}document.getElementById('loginOverlay').classList.add('open');document.getElementById('pwdInput').value='';document.getElementById('loginErr').textContent='';setTimeout(()=>document.getElementById('pwdInput').focus(),80);}
-function doLogin(){
-  if(document.getElementById('pwdInput').value===getPwd()){
-    isAdmin=true;sessionStorage.setItem('isAdmin','1');
-    document.getElementById('loginOverlay').classList.remove('open');
-    updAdmin();renderAdmin();switchTab('admin');showToast('管理員已登入');
-  }else{document.getElementById('loginErr').textContent='密碼錯誤';document.getElementById('pwdInput').value='';document.getElementById('pwdInput').focus();}
-}
+function doLogin(){if(document.getElementById('pwdInput').value===getPwd()){isAdmin=true;sessionStorage.setItem('isAdmin','1');document.getElementById('loginOverlay').classList.remove('open');updAdmin();renderAdmin();switchTab('admin');showToast('管理員已登入');}else{document.getElementById('loginErr').textContent='密碼錯誤';document.getElementById('pwdInput').value='';document.getElementById('pwdInput').focus();}}
 function closeLogin(){document.getElementById('loginOverlay').classList.remove('open');}
 document.getElementById('pwdInput').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
+/* ── modal ── */
 function closeModal(){document.getElementById('modalBg').classList.remove('open');_modalCb=null;}
 function confirmModal(){if(_modalCb){if(_modalCb()!==false)closeModal();}else closeModal();}
 document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===document.getElementById('modalBg'))closeModal();});
 
+/* ── tabs ── */
 function switchTab(t){
   const ns=['order','summary','history','admin'];
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',ns[i]===t));
@@ -1545,22 +948,13 @@ function switchTab(t){
   if(t==='history')renderHistory();
   if(t==='admin')renderAdmin();
 }
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.classList.add('show');
-  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);
-}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);}
 
 (function wait(n){
-  if(typeof firebase!=='undefined'){
-    initFB();
-  } else if(n>0){
-    setTimeout(()=>wait(n-1),200);
-  } else {
-    console.error('Firebase 載入失敗');
-  }
+  if(typeof firebase!=='undefined'){initFB();}
+  else if(n>0){setTimeout(()=>wait(n-1),200);}
+  else{console.error('Firebase 載入失敗');}
 })(20);
-
 renderAll();
 </script>
 </body>
