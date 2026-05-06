@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.4 2026-05-05 -->
+<!-- lunch-v4.5 2026-05-06 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.4 Firebase 即時同步</div>
+<div id="fbBanner">v4.5 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -746,21 +746,32 @@ function renderSummary(){
   if(unlockedB>0)dhB+=`<div style="background:var(--al);border:1px solid var(--amber);border-radius:var(--rs);padding:10px 14px;margin-top:8px;font-size:12px;color:var(--amber);">⏳ 尚有 ${unlockedB} 人未送出訂單，送出後才會顯示在總覽</div>`;
   document.getElementById('deptSummaryB').innerHTML=dhB||'<div class="empty">尚無訂單</div>';
 
-  /* ── C：彙整清單（原版，同品項合計份數）── */
+  /* ── C：彙整清單（依分類排序）── */
   const all={};
   depts.forEach(d=>d.members.forEach(m=>{
     if(!isLocked(d.name,m))return;
     const o=getOrder(d.name,m);const rice=o.rice||'正常';
     Object.keys(o.items||{}).forEach(k=>{
-      if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);const addonDN=getOptDisplayName(addonN);if(addonPrice>0){const lb='+ '+addonDN;if(!all[lb])all[lb]={label:lb,price:addonPrice,qty:0};all[lb].qty+=(o.items[k]||0);}return;}
+      if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);const addonDN=getOptDisplayName(addonN);if(addonPrice>0){const lb='+ '+addonDN;if(!all[lb])all[lb]={label:lb,price:addonPrice,qty:0,cat:'加點'};all[lb].qty+=(o.items[k]||0);}return;}
       const it=findItemByKey(r?.items,k);
-      if(it){const optN=getOptName(o,k);const label=buildLabel(it,optN,rice);if(!all[label])all[label]={label,price:getItemTotalPrice(it,optN),qty:0};all[label].qty+=o.items[k];}
+      if(it){const optN=getOptName(o,k);const label=buildLabel(it,optN,rice);if(!all[label])all[label]={label,price:getItemTotalPrice(it,optN),qty:0,cat:it.cat||'其他'};all[label].qty+=o.items[k];}
     });
   }));
-  const entries=Object.values(all).sort((a,b)=>a.label.localeCompare(b.label,'zh-Hant'));
-  document.getElementById('mergedList').innerHTML=entries.length
-    ?entries.map(e=>`<div class="orow"><span class="orow-name">${e.label}</span><span class="orow-sub" style="font-size:13px;font-weight:600;">× ${e.qty}　NT$${e.price*e.qty}</span></div>`).join('')
-    :'<div class="empty">尚未選擇餐點</div>';
+  // 依分類分組，分類內再按品名排序
+  const catOrder={};
+  Object.values(all).forEach(e=>{if(!catOrder[e.cat])catOrder[e.cat]=[];catOrder[e.cat].push(e);});
+  const sortedCats=Object.keys(catOrder).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  sortedCats.forEach(cat=>catOrder[cat].sort((a,b)=>a.label.localeCompare(b.label,'zh-Hant')));
+  if(Object.keys(all).length){
+    let html='';
+    sortedCats.forEach(cat=>{
+      html+=`<div style="padding:6px 14px;background:var(--sf2);border-bottom:1px solid var(--bd);font-size:11px;font-weight:700;color:var(--hint);letter-spacing:.06em;">${cat}</div>`;
+      html+=catOrder[cat].map(e=>`<div class="orow"><span class="orow-name">${e.label}</span><span class="orow-sub" style="font-size:13px;font-weight:600;">× ${e.qty}　NT$${e.price*e.qty}</span></div>`).join('');
+    });
+    document.getElementById('mergedList').innerHTML=html;
+  }else{
+    document.getElementById('mergedList').innerHTML='<div class="empty">尚未選擇餐點</div>';
+  }
 
   // 使用 A 的 gT/gC（已送出）
   document.getElementById('totalAmt').textContent='NT$'+gT;
@@ -813,8 +824,15 @@ function copyOrder(){
   depts.forEach(dept=>{let dl=[];dept.members.forEach(m=>{if(!isLocked(dept.name,m))return;let mi=[],mt=0;const o=getOrder(dept.name,m);const rice2=o.rice||'正常';
     Object.keys(o.items||{}).forEach(k=>{if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);if(addonPrice>0){mt+=addonPrice*(o.items[k]||0);mi.push('+'+getOptDisplayName(addonN)+' ×'+(o.items[k]||0));}return;}const it=findItemByKey(r?.items,k);if(it){const optN=getOptName(o,k);mt+=getItemTotalPrice(it,optN)*o.items[k];cnt+=o.items[k];let lbl=it.name;if(optN)lbl+=' | '+getOptDisplayName(optN);const itHasRice=it.riceOptions&&it.riceOptions.length>0;if(itHasRice&&rice2!=='正常')lbl+=' | '+rice2;mi.push(lbl+' ×'+o.items[k]);}});
     if(mi.length){total+=mt;dl.push(`  ${m}：${mi.join('、')}（NT$${mt}）`);}});if(dl.length){lines.push(`▸ ${dept.name}`);lines.push(...dl);}});
-  const allC={};depts.forEach(d=>d.members.forEach(m=>{if(!isLocked(d.name,m))return;const oC=getOrder(d.name,m);const rC=oC.rice||'正常';Object.keys(oC.items||{}).forEach(k=>{const itC=findItemByKey(r?.items,k);if(itC){const optNC=getOptName(oC,k);let lbl=itC.name;if(optNC)lbl+=' | '+getOptDisplayName(optNC);const cHasRice=itC.riceOptions&&itC.riceOptions.length>0;if(cHasRice&&rC!=='正常')lbl+=' | '+rC;if(!allC[lbl])allC[lbl]={qty:0,price:getItemTotalPrice(itC,optNC)};allC[lbl].qty+=oC.items[k];}});}));
-  lines.push('─'.repeat(22),'【彙整清單】');Object.entries(allC).sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant')).forEach(([lbl,v])=>lines.push('  '+lbl+' × '+v.qty+'　NT$'+(v.price*v.qty)));
+  const allC={};depts.forEach(d=>d.members.forEach(m=>{if(!isLocked(d.name,m))return;const oC=getOrder(d.name,m);const rC=oC.rice||'正常';Object.keys(oC.items||{}).forEach(k=>{const itC=findItemByKey(r?.items,k);if(itC){const optNC=getOptName(oC,k);let lbl=itC.name;if(optNC)lbl+=' | '+getOptDisplayName(optNC);const cHasRice=itC.riceOptions&&itC.riceOptions.length>0;if(cHasRice&&rC!=='正常')lbl+=' | '+rC;if(!allC[lbl])allC[lbl]={qty:0,price:getItemTotalPrice(itC,optNC),cat:itC.cat||'其他'};allC[lbl].qty+=oC.items[k];}});}));
+  lines.push('─'.repeat(22),'【彙整清單】');
+  // 依分類分組排序
+  const allCByCat={};
+  Object.entries(allC).forEach(([lbl,v])=>{const cat=v.cat||'其他';if(!allCByCat[cat])allCByCat[cat]=[];allCByCat[cat].push([lbl,v]);});
+  Object.keys(allCByCat).sort((a,b)=>a.localeCompare(b,'zh-Hant')).forEach(cat=>{
+    lines.push('  ▸ '+cat);
+    allCByCat[cat].sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant')).forEach(([lbl,v])=>lines.push('    '+lbl+' × '+v.qty+'　NT$'+(v.price*v.qty)));
+  });
   lines.push('─'.repeat(22),'合計：'+cnt+' 份　NT$'+total);
   navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('已複製！貼到 Line'));
 }
