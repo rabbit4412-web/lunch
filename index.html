@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.9 2026-05-11 -->
+<!-- lunch-v4.10 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.9 Firebase 即時同步</div>
+<div id="fbBanner">v4.10 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -534,11 +534,15 @@ function isOrderClosed(){
   const dl=getDeadlineForDay(dk());
   if(!dl)return false;
   const now=new Date();
-  // 指定日期時間格式
   if(dl.includes('T')){
-    return now>=new Date(dl);
+    // datetime-local 格式 "YYYY-MM-DDTHH:MM" — 沒有時區，需手動當本地時間解析
+    const [datePart,timePart]=dl.split('T');
+    const [y,mo,d]=datePart.split('-').map(Number);
+    const [hh,mm]=(timePart||'00:00').split(':').map(Number);
+    const deadline=new Date(y,mo-1,d,hh,mm,0); // 本地時間
+    return now>=deadline;
   }
-  // 純時間格式 HH:MM → 比對今天
+  // 純時間 HH:MM → 比對今天本地時間
   const [hh,mm]=dl.split(':').map(Number);
   const deadline=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm,0);
   return now>=deadline;
@@ -546,8 +550,10 @@ function isOrderClosed(){
 function deadlineDisplayText(dl){
   if(!dl)return'';
   if(dl.includes('T')){
-    const d=new Date(dl);
-    return`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const [datePart,timePart]=dl.split('T');
+    const [y,mo,d]=datePart.split('-').map(Number);
+    const [hh,mm]=(timePart||'00:00').split(':').map(Number);
+    return`${mo}/${d} ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
   }
   return dl;
 }
@@ -663,7 +669,8 @@ function renderMenu(){
     document.getElementById('menuGrid').innerHTML=`<div style="padding:20px;text-align:center;"><div style="font-size:40px;margin-bottom:10px;">✅</div><div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px;">${curMember.name} 的訂單已送出</div><div style="font-size:13px;color:var(--sub);margin-bottom:16px;">NT$${mTotal(curMember.dept,curMember.name)}</div>${isAdmin?`<button class="btn-sm" onclick="unlockMember('${curMember.dept}','${curMember.name}');renderMenu();" style="color:var(--red);border-color:#F09595;">管理員解鎖</button>`:''}</div>`;
     return;
   }
-  const items=curCat==='全部'?r.items:r.items.filter(i=>i.cat===curCat);
+  const items=curCat==='全部'?(r.items||[]):(r.items||[]).filter(i=>i.cat===curCat);
+  if(!items.length){document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">此分類尚無餐點</div>';return;}
   const o=getOrder(curMember.dept,curMember.name);
   const ro=o.rice||'正常';
   const rid=todayRid(),ro2=orders[dk()]?.[rid]||{};
