@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.8 2026-05-11 -->
+<!-- lunch-v4.9 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.8 Firebase 即時同步</div>
+<div id="fbBanner">v4.9 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -649,17 +649,16 @@ function renderCatBar(){
 function renderMenu(){
   const r=todayRest();
   if(!r){document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">今日尚無菜單，請管理員設定</div>';return;}
-  // 截止時間檢查（管理員仍可操作）
-  if(!isAdmin&&isOrderClosed()){
-    const dlText=deadlineDisplayText(getDeadlineForDay(dk()));
-    document.getElementById('menuGrid').innerHTML=`<div style="grid-column:1/-1;padding:28px 16px;text-align:center;">
-      <div style="font-size:42px;margin-bottom:12px;">🔒</div>
-      <div style="font-size:16px;font-weight:700;color:var(--red);margin-bottom:6px;">今日點餐已截止</div>
-      <div style="font-size:13px;color:var(--sub);">截止時間：${dlText}</div>
-    </div>`;
+  const orderClosed=!isAdmin&&isOrderClosed();
+  if(!curMember){
+    if(orderClosed){
+      const dlText=deadlineDisplayText(getDeadlineForDay(dk()));
+      document.getElementById('menuGrid').innerHTML=`<div style="padding:16px;text-align:center;"><div style="font-size:28px;margin-bottom:8px;">🔒</div><div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:4px;">點餐已截止</div><div style="font-size:12px;color:var(--sub);">${dlText}</div></div>`;
+    }else{
+      document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">請先在上方選擇你的名字</div>';
+    }
     return;
   }
-  if(!curMember){document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">請先在上方選擇你的名字</div>';return;}
   if(isLocked(curMember.dept,curMember.name)){
     document.getElementById('menuGrid').innerHTML=`<div style="padding:20px;text-align:center;"><div style="font-size:40px;margin-bottom:10px;">✅</div><div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px;">${curMember.name} 的訂單已送出</div><div style="font-size:13px;color:var(--sub);margin-bottom:16px;">NT$${mTotal(curMember.dept,curMember.name)}</div>${isAdmin?`<button class="btn-sm" onclick="unlockMember('${curMember.dept}','${curMember.name}');renderMenu();" style="color:var(--red);border-color:#F09595;">管理員解鎖</button>`:''}</div>`;
     return;
@@ -688,11 +687,18 @@ function renderMenu(){
       if(item.addons&&item.addons.length>0){const addonBtns=item.addons.map(addon=>{const ak=sid+'_ADD_'+addon;const aqty=o.items[ak]||0;const aPrice=parseOptPrice(addon);const aName=getOptDisplayName(addon);return`<button class="rice-btn${aqty>0?' active':''}" style="${aqty>0?'background:var(--gl);color:var(--gm);border-color:var(--green);':''}" onclick="toggleAddon('${sid}','${addon}',event)">${aName}${aPrice>0?' +'+aPrice:''}${aqty>0?' ✓':''}</button>`;}).join('');addonHtml=`<div class="rice-row" style="margin-top:5px;">${addonBtns}</div>`;}
       body=qh+rh+addonHtml;
     }
-    return`<div class="mcard${mq>0?' sel':''}" onclick="${hasOpts?'void(0)':'clickItem('+item.id+')'}">${tq>0?`<div class="qbadge">${tq}</div>`:''}<div class="cat-tag">${item.cat}</div><div class="mname">${item.name}</div><div class="mprice">NT$${item.price}${mq>0&&!hasOpts?' ×'+mq:''}</div>${body}</div>`;
+    return`<div class="mcard${mq>0?' sel':''}" onclick="${orderClosed?'void(0)':(hasOpts?'void(0)':'clickItem('+item.id+')')}">${tq>0?`<div class="qbadge">${tq}</div>`:''}<div class="cat-tag">${item.cat}</div><div class="mname">${item.name}</div><div class="mprice">NT$${item.price}${mq>0&&!hasOpts?' ×'+mq:''}</div>${body}</div>`;
   }).join('');
   const myO=getOrder(curMember.dept,curMember.name);
   const myTotal=mTotal(curMember.dept,curMember.name);
-  if(Object.keys(myO.items||{}).length>0){
+  if(orderClosed){
+    // 截止後：顯示提示條，不顯示送出按鈕；已點的餐點仍然可見
+    const dlText=deadlineDisplayText(getDeadlineForDay(dk()));
+    document.getElementById('menuGrid').innerHTML+=`<div style="grid-column:1/-1;margin-top:4px;background:var(--rl);border:1px solid #F09595;border-radius:var(--rs);padding:11px 14px;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:18px;">🔒</span>
+      <div><div style="font-size:13px;font-weight:700;color:var(--red);">點餐已截止（${dlText}）</div><div style="font-size:11px;color:#a33;">已點的餐點已記錄，請確認後由管理員送出</div></div>
+    </div>`;
+  }else if(Object.keys(myO.items||{}).length>0){
     document.getElementById('menuGrid').innerHTML+=`<div style="grid-column:1/-1;margin-top:4px;"><button class="btn-confirm" onclick="confirmOrder()">✓ 確認送出（NT$${myTotal}）</button></div>`;
   }
 }
@@ -949,13 +955,13 @@ function selDay(i){curDayIdx=i;curCat='全部';curMember=null;renderAll();if(isA
 function selMember(dept,name){if(isLocked(dept,name)){showToast(name+' 已送出訂單，無法更改');return;}curMember={dept,name};renderDepts();renderMenu();}
 function selCat(c){curCat=c;renderCatBar();renderMenu();}
 function toggleDept(di){const el=document.getElementById('dm'+di);el.style.display=el.style.display==='none'?'':'none';}
-function clickItem(id){if(!curMember){showToast('請先選擇你的名字');return;}addItemToOrder(id,null);}
-function clickItemOpt(id,opt,e){e.stopPropagation();if(!curMember){showToast('請先選擇你的名字');return;}addItemToOrder(id,opt);}
+function clickItem(id){if(!curMember){showToast('請先選擇你的名字');return;}if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}addItemToOrder(id,null);}
+function clickItemOpt(id,opt,e){e.stopPropagation();if(!curMember){showToast('請先選擇你的名字');return;}if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}addItemToOrder(id,opt);}
 function addItemToOrder(id,option){const key=option?String(id)+'_'+option:String(id);mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};o.items[key]=(o.items[key]||0)+1;});renderDepts();renderMenu();updateHdr();renderWeek();}
 function closeOptionModal(){document.getElementById('optionModal').classList.remove('open');}
-function chQty(key,d,e){e.stopPropagation();if(!curMember)return;mutOrder(curMember.dept,curMember.name,o=>{const nv=Math.max(0,(o.items[key]||0)+d);if(nv===0){delete o.items[key];if(o.itemOptions)delete o.itemOptions[key];}else o.items[key]=nv;});renderDepts();renderMenu();updateHdr();renderWeek();}
+function chQty(key,d,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}mutOrder(curMember.dept,curMember.name,o=>{const nv=Math.max(0,(o.items[key]||0)+d);if(nv===0){delete o.items[key];if(o.itemOptions)delete o.itemOptions[key];}else o.items[key]=nv;});renderDepts();renderMenu();updateHdr();renderWeek();}
 function setRice(opt,e){e.stopPropagation();if(!curMember)return;mutOrder(curMember.dept,curMember.name,o=>{o.rice=opt;});renderMenu();}
-function toggleAddon(sid,addon,e){e.stopPropagation();if(!curMember)return;const ak=sid+'_ADD_'+addon;mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};const baseQty=o.items[sid]||0;if(baseQty===0){showToast('請先選擇主餐');return;}if(o.items[ak])delete o.items[ak];else o.items[ak]=baseQty;});renderDepts();renderMenu();updateHdr();}
+function toggleAddon(sid,addon,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}const ak=sid+'_ADD_'+addon;mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};const baseQty=o.items[sid]||0;if(baseQty===0){showToast('請先選擇主餐');return;}if(o.items[ak])delete o.items[ak];else o.items[ak]=baseQty;});renderDepts();renderMenu();updateHdr();}
 function clearDay(){if(!confirm('確定清空今天所有訂單？'))return;const rid=todayRid();if(rid&&orders[dk()])delete orders[dk()][rid];lockedOrders[dk()]={};pushOrders();pushLocked();renderAll();renderSummary();showToast('已清空');}
 
 function copyOrder(){
