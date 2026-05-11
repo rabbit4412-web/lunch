@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.14 2026-05-11 -->
+<!-- lunch-v4.15 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.14 Firebase 即時同步</div>
+<div id="fbBanner">v4.15 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -466,8 +466,8 @@ const FB={
   projectId:"lunch-ec49c",storageBucket:"lunch-ec49c.firebasestorage.app",
   messagingSenderId:"555132314787",appId:"1:555132314787:web:6f9a2e1932bbaab2e7cb16"
 };
-const DAYS=['一','二','三','四','五'];
-const DAY_KEYS=['mon','tue','wed','thu','fri'];
+const DAYS=['一','二','三','四','五','TEST'];
+const DAY_KEYS=['mon','tue','wed','thu','fri','TEST'];
 
 let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
 let curCat='全部',curMember=null;
@@ -1156,39 +1156,63 @@ function openDeadlineModal(dayIndex){
   const d=DAY_KEYS[dayIndex];
   const current=deadlines[d]||'';
   document.getElementById('modalTitle').textContent='設定週'+DAYS[dayIndex]+'截止時間';
-  // 預設顯示現有值
-  const currentTime=current.includes('T')?current.slice(11,16):(current||'08:00');
+  // 判斷現有格式
+  const isDateTime=current.includes('T');
+  const curTimeVal=isDateTime?current.slice(11,16):(current||'');
   document.getElementById('modalBody').innerHTML=`
     <div style="font-size:12px;color:var(--sub);margin-bottom:12px;">時間到後一般人員無法點餐，管理員不受限制。</div>
-    <div style="margin-bottom:10px;">
-      <div style="font-size:12px;font-weight:600;color:var(--tx);margin-bottom:5px;">📅 每週固定時間</div>
-      <input type="time" id="dlTimeInput" value="${currentTime}" style="width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:16px;margin-bottom:4px;background:var(--sf);color:var(--tx);">
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      <button id="modeTime" onclick="dlSwitchMode('time')" style="flex:1;padding:7px;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--green);background:var(--gl);color:var(--gd);">🔁 每週固定</button>
+      <button id="modeDatetime" onclick="dlSwitchMode('datetime')" style="flex:1;padding:7px;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--bd2);background:var(--sf);color:var(--sub);">📅 指定日期（單次）</button>
+    </div>
+    <div id="dlTimeWrap">
+      <input type="time" id="dlTimeInput" value="${curTimeVal||'08:00'}" style="width:100%;padding:10px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:20px;margin-bottom:4px;background:var(--sf);color:var(--tx);">
       <div style="font-size:11px;color:var(--hint);">每週${DAYS[dayIndex]}固定在此時間截止</div>
     </div>
-    <div style="text-align:center;color:var(--hint);font-size:12px;margin:6px 0;">— 或 —</div>
-    <div>
-      <div style="font-size:12px;font-weight:600;color:var(--tx);margin-bottom:5px;">🗓 指定單次日期時間</div>
-      <input type="datetime-local" id="dlDatetimeInput" style="width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:14px;margin-bottom:4px;background:var(--sf);color:var(--tx);">
-      <div style="font-size:11px;color:var(--hint);">只有這一次有效，過後自動清除</div>
+    <div id="dlDatetimeWrap" style="display:none;">
+      <input type="datetime-local" id="dlDatetimeInput" style="width:100%;padding:10px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:16px;margin-bottom:4px;background:var(--sf);color:var(--tx);">
+      <div style="font-size:11px;color:var(--hint);">只有這一次有效</div>
     </div>
     ${current?`<div style="margin-top:10px;padding:8px 10px;background:var(--al);border-radius:var(--rs);font-size:12px;color:var(--amber);">目前設定：${deadlineDisplayText(current)}</div>`:''}
   `;
   _modalCb=()=>{
-    const timeVal=document.getElementById('dlTimeInput').value;
-    const dtVal=document.getElementById('dlDatetimeInput').value;
-    if(dtVal){
-      // 指定日期優先
+    const wrap=document.getElementById('dlDatetimeWrap');
+    const useDateTime=wrap&&wrap.style.display!=='none';
+    if(useDateTime){
+      const dtVal=document.getElementById('dlDatetimeInput').value;
+      if(!dtVal){showToast('請選擇日期時間');return false;}
       deadlines[d]=dtVal;
-    }else if(timeVal){
-      deadlines[d]=timeVal;
     }else{
-      deadlines[d]='';
+      const timeVal=document.getElementById('dlTimeInput').value;
+      if(!timeVal){showToast('請選擇時間');return false;}
+      deadlines[d]=timeVal;
     }
     pushDeadlines();renderAll();renderAdmin();
-    showToast('截止時間已設定：'+(deadlineDisplayText(deadlines[d])||'已清除'));
+    showToast('截止時間已設定：'+deadlineDisplayText(deadlines[d]));
     return true;
   };
   document.getElementById('modalBg').classList.add('open');
+}
+function dlSwitchMode(mode){
+  const timeWrap=document.getElementById('dlTimeWrap');
+  const dtWrap=document.getElementById('dlDatetimeWrap');
+  const btnTime=document.getElementById('modeTime');
+  const btnDt=document.getElementById('modeDatetime');
+  const on='border:1.5px solid var(--green);background:var(--gl);color:var(--gd);';
+  const off='border:1.5px solid var(--bd2);background:var(--sf);color:var(--sub);';
+  if(mode==='time'){
+    timeWrap.style.display='';dtWrap.style.display='none';
+    btnTime.style.cssText+=on;btnDt.style.cssText+=off;
+  }else{
+    timeWrap.style.display='none';dtWrap.style.display='';
+    btnDt.style.cssText+=on;btnTime.style.cssText+=off;
+    // 預設填入今天+明天的合理時間
+    if(!document.getElementById('dlDatetimeInput').value){
+      const now=new Date();
+      now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
+      document.getElementById('dlDatetimeInput').value=now.toISOString().slice(0,16);
+    }
+  }
 }
 function clearDeadline(dayKey){
   deadlines[dayKey]='';
