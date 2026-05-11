@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.7 2026-05-11 -->
+<!-- lunch-v4.8 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.7 Firebase 即時同步</div>
+<div id="fbBanner">v4.8 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -317,6 +317,21 @@ button,input,select{font-family:inherit;}
       <h3>📅 本週店家排程</h3>
       <div class="week-schedule" id="weekSchedule"></div>
       <p style="font-size:11px;color:var(--hint);">點選星期格子可更換當天店家</p>
+    </div>
+    <div class="admin-section">
+      <h3>⏰ 點餐截止時間設定</h3>
+      <p style="font-size:12px;color:var(--sub);margin-bottom:10px;">設定後所有人到時間即無法點餐（管理員不受限制）</p>
+      <div id="deadlineGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;"></div>
+      <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;">
+        <div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:8px;">🗓 指定特定日期截止（單次）</div>
+        <div class="add-row" style="margin-bottom:0;">
+          <input type="datetime-local" id="aDeadlineDatetime" style="flex:1;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:13px;background:var(--sf);color:var(--tx);">
+          <select id="aDeadlineDaySel" style="flex:none;width:90px;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:13px;background:var(--sf);color:var(--tx);">
+            <option value="mon">週一</option><option value="tue">週二</option><option value="wed">週三</option><option value="thu">週四</option><option value="fri">週五</option>
+          </select>
+          <button class="btn-sm" onclick="adminSetDateDeadline()" style="border-color:var(--green);color:var(--green);">設定</button>
+        </div>
+      </div>
     </div>
     <div class="admin-section">
       <h3>🏪 步驟一：新增店家</h3>
@@ -451,8 +466,8 @@ const FB={
   projectId:"lunch-ec49c",storageBucket:"lunch-ec49c.firebasestorage.app",
   messagingSenderId:"555132314787",appId:"1:555132314787:web:6f9a2e1932bbaab2e7cb16"
 };
-const DAYS=['一','二','三','四','五','測試'];
-const DAY_KEYS=['mon','tue','wed','thu','fri','test'];
+const DAYS=['一','二','三','四','五'];
+const DAY_KEYS=['mon','tue','wed','thu','fri'];
 
 let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
 let curCat='全部',curMember=null;
@@ -471,6 +486,8 @@ let depts=[
 ];
 let orders={mon:{},tue:{},wed:{},thu:{},fri:{}};
 let lockedOrders={mon:{},tue:{},wed:{},thu:{},fri:{}};
+// deadlines: {mon:'08:30', tue:'08:30', ...} 或 {mon:'2026-05-12T08:30', ...} 指定日期時間
+let deadlines={mon:'',tue:'',wed:'',thu:'',fri:''};
 let history=JSON.parse(localStorage.getItem('lunchH7')||'[]');
 let rIdSeq=100,iIdSeq=1000;
 
@@ -494,6 +511,7 @@ function initFB(){
     db.ref('depts').on('value',s=>{if(_deptsLocalPush){_deptsLocalPush=false;return;}const v=s.val();if(v!=null){let arr=Array.isArray(v)?v:Object.values(v);depts=arr.filter(d=>d&&d.name).map(d=>({name:d.name,members:Array.isArray(d.members)?d.members:(d.members?Object.values(d.members):[])}));}renderAll();if(isAdmin)renderAdmin();});
     db.ref('.info/connected').on('value',s=>{setSS(s.val()?'ok':'off');renderAll();});
     db.ref('lockedOrders').on('value',s=>{const v=s.val();if(v)DAY_KEYS.forEach(dk=>{if(v[dk])lockedOrders[dk]=v[dk];});renderAll();});
+    db.ref('deadlines').on('value',s=>{const v=s.val();if(v)Object.assign(deadlines,v);renderAll();if(isAdmin)renderAdmin();startDeadlineTimer();});
   }catch(e){console.error(e);setSS('off');document.getElementById('fbBanner').className='warn';document.getElementById('fbBanner').textContent='⚠️ Firebase 連線失敗';renderAll();}
 }
 function setSS(s){document.getElementById('syncDot').className='sync-dot'+(s==='syncing'?' syncing':s==='off'?' off':'');}
@@ -505,7 +523,46 @@ function pushLocked(){if(db)db.ref('lockedOrders/'+dk()).set(lockedOrders[dk()]|
 function isLocked(dept,member){return!!(lockedOrders[dk()]&&lockedOrders[dk()][dept+'__'+member]);}
 function lockMember(dept,member){if(!lockedOrders[dk()])lockedOrders[dk()]={};lockedOrders[dk()][dept+'__'+member]=true;pushLocked();}
 function unlockMember(dept,member){if(lockedOrders[dk()])delete lockedOrders[dk()][dept+'__'+member];pushLocked();}
-function pushDepts(){
+function pushDeadlines(){if(db)db.ref('deadlines').set(deadlines);}
+
+/* ── 截止時間邏輯 ── */
+// deadline 格式：'HH:MM'（每週固定）或 'YYYY-MM-DDTHH:MM'（指定日期）
+function getDeadlineForDay(dayKey){
+  return deadlines[dayKey]||'';
+}
+function isOrderClosed(){
+  const dl=getDeadlineForDay(dk());
+  if(!dl)return false;
+  const now=new Date();
+  // 指定日期時間格式
+  if(dl.includes('T')){
+    return now>=new Date(dl);
+  }
+  // 純時間格式 HH:MM → 比對今天
+  const [hh,mm]=dl.split(':').map(Number);
+  const deadline=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm,0);
+  return now>=deadline;
+}
+function deadlineDisplayText(dl){
+  if(!dl)return'';
+  if(dl.includes('T')){
+    const d=new Date(dl);
+    return`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  return dl;
+}
+let _deadlineTimer=null;
+function startDeadlineTimer(){
+  if(_deadlineTimer)clearInterval(_deadlineTimer);
+  _deadlineTimer=setInterval(()=>{
+    // 每分鐘檢查一次，時間到就重新渲染（讓關閉提示出現）
+    renderMenu();renderDepts();
+    const dl=getDeadlineForDay(dk());
+    if(dl&&isOrderClosed()){
+      clearInterval(_deadlineTimer);_deadlineTimer=null;
+    }
+  },15000); // 每15秒檢查
+}
   if(!db){renderAll();if(isAdmin)renderAdmin();return;}
   _deptsLocalPush=true;
   const obj={};depts.forEach((d,i)=>{obj['d'+String(i).padStart(3,'0')]={name:d.name,members:d.members||[]};});
@@ -554,9 +611,18 @@ function renderWeek(){
 }
 function renderRestBar(){
   const r=todayRest();
+  const dl=getDeadlineForDay(dk());
+  const closed=isOrderClosed();
+  const dlText=deadlineDisplayText(dl);
+  let dlBadge='';
+  if(dl&&closed){
+    dlBadge=`<span style="background:var(--rl);color:var(--red);font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid #F09595;">🔒 點餐已截止（${dlText}）</span>`;
+  }else if(dl&&!closed){
+    dlBadge=`<span style="background:var(--al);color:var(--amber);font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;border:1px solid #D4A017;">⏰ 截止：${dlText}</span>`;
+  }
   document.getElementById('restBar').innerHTML=r
-    ?`<div class="chip g">${r.name}</div><span style="font-size:12px;color:var(--sub);padding:5px 4px;">今日店家</span>`
-    :'<div style="font-size:13px;color:var(--hint);padding:4px 0;">今日尚未安排店家</div>';
+    ?`<div class="chip g">${r.name}</div>${dlBadge}<span style="font-size:12px;color:var(--sub);padding:5px 4px;">今日店家</span>`
+    :`<div style="font-size:13px;color:var(--hint);padding:4px 0;">今日尚未安排店家</div>${dlBadge}`;
 }
 function renderMenuImg(){
   const r=todayRest(),area=document.getElementById('menuImgArea');
@@ -583,6 +649,16 @@ function renderCatBar(){
 function renderMenu(){
   const r=todayRest();
   if(!r){document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">今日尚無菜單，請管理員設定</div>';return;}
+  // 截止時間檢查（管理員仍可操作）
+  if(!isAdmin&&isOrderClosed()){
+    const dlText=deadlineDisplayText(getDeadlineForDay(dk()));
+    document.getElementById('menuGrid').innerHTML=`<div style="grid-column:1/-1;padding:28px 16px;text-align:center;">
+      <div style="font-size:42px;margin-bottom:12px;">🔒</div>
+      <div style="font-size:16px;font-weight:700;color:var(--red);margin-bottom:6px;">今日點餐已截止</div>
+      <div style="font-size:13px;color:var(--sub);">截止時間：${dlText}</div>
+    </div>`;
+    return;
+  }
   if(!curMember){document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">請先在上方選擇你的名字</div>';return;}
   if(isLocked(curMember.dept,curMember.name)){
     document.getElementById('menuGrid').innerHTML=`<div style="padding:20px;text-align:center;"><div style="font-size:40px;margin-bottom:10px;">✅</div><div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px;">${curMember.name} 的訂單已送出</div><div style="font-size:13px;color:var(--sub);margin-bottom:16px;">NT$${mTotal(curMember.dept,curMember.name)}</div>${isAdmin?`<button class="btn-sm" onclick="unlockMember('${curMember.dept}','${curMember.name}');renderMenu();" style="color:var(--red);border-color:#F09595;">管理員解鎖</button>`:''}</div>`;
@@ -623,6 +699,7 @@ function renderMenu(){
 
 function confirmOrder(){
   if(!curMember)return;
+  if(!isAdmin&&isOrderClosed()){showToast('點餐已截止，無法送出');return;}
   const o=getOrder(curMember.dept,curMember.name);
   if(!Object.keys(o.items||{}).length){showToast('請先點選餐點');return;}
   const total=mTotal(curMember.dept,curMember.name);
@@ -822,6 +899,33 @@ function renderHistory(){
 function renderAdmin(){
   if(!isAdmin)return;
   document.getElementById('weekSchedule').innerHTML=DAY_KEYS.map((d,i)=>{const rid=schedule[d];const r=rid?allRests[rid]:null;return`<div class="wday-cell${curDayIdx===i?' active':''}" onclick="openSchedModal(${i})"><div class="wlabel">週${DAYS[i]}</div>${r?`<div class="wrest">${r.name}</div>`:`<div class="wempty">未設定</div>`}</div>`;}).join('');
+  // 截止時間格子
+  const dg=document.getElementById('deadlineGrid');
+  if(dg){
+    dg.innerHTML=DAY_KEYS.map((d,i)=>{
+      const dl=deadlines[d]||'';
+      const closed=dl&&isOrderClosed()&&i===curDayIdx;
+      const dlText=dl?deadlineDisplayText(dl):'未設定';
+      const color=dl?(closed?'var(--red)':'var(--amber)'):'var(--hint)';
+      return`<div style="background:var(--sf2);border:1.5px solid var(--bd);border-radius:var(--rs);padding:8px 6px;text-align:center;">
+        <div style="font-size:10px;font-weight:700;color:var(--sub);margin-bottom:4px;">週${DAYS[i]}</div>
+        <div style="font-size:11px;font-weight:600;color:${color};margin-bottom:6px;line-height:1.3;">${dlText}</div>
+        <div style="display:flex;gap:3px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="openDeadlineModal(${i})" style="font-size:10px;padding:2px 6px;border:1px solid var(--green);border-radius:10px;background:var(--sf);color:var(--green);cursor:pointer;">設定</button>
+          ${dl?`<button onclick="clearDeadline('${d}')" style="font-size:10px;padding:2px 6px;border:1px solid #F09595;border-radius:10px;background:var(--sf);color:var(--red);cursor:pointer;">清除</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  // 截止時間 datetime-local 預設為今天當前時間
+  const dtInput=document.getElementById('aDeadlineDatetime');
+  if(dtInput&&!dtInput.value){
+    const now=new Date();now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
+    dtInput.value=now.toISOString().slice(0,16);
+  }
+  // 截止時間 day select 預設為今天
+  const dSel=document.getElementById('aDeadlineDaySel');
+  if(dSel)dSel.value=dk();
   const rids=Object.keys(allRests);
   const importSel=document.getElementById('importRestSelect');
   if(importSel)importSel.innerHTML=rids.length?rids.map(rid=>`<div class="chip${rid===importTargetRid?' g':''}" onclick="selectImportTarget('${rid}')">${allRests[rid].name}</div>`).join(''):'<span style="font-size:12px;color:var(--hint);">尚無店家，請先建立</span>';
@@ -1033,8 +1137,58 @@ function closeModal(){document.getElementById('modalBg').classList.remove('open'
 function confirmModal(){if(_modalCb){if(_modalCb()!==false)closeModal();}else closeModal();}
 document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===document.getElementById('modalBg'))closeModal();});
 
-/* ── tabs ── */
-function switchTab(t){
+/* ── 截止時間操作 ── */
+function openDeadlineModal(dayIndex){
+  const d=DAY_KEYS[dayIndex];
+  const current=deadlines[d]||'';
+  document.getElementById('modalTitle').textContent='設定週'+DAYS[dayIndex]+'截止時間';
+  // 預設顯示現有值
+  const currentTime=current.includes('T')?current.slice(11,16):(current||'08:00');
+  document.getElementById('modalBody').innerHTML=`
+    <div style="font-size:12px;color:var(--sub);margin-bottom:12px;">時間到後一般人員無法點餐，管理員不受限制。</div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:600;color:var(--tx);margin-bottom:5px;">📅 每週固定時間</div>
+      <input type="time" id="dlTimeInput" value="${currentTime}" style="width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:16px;margin-bottom:4px;background:var(--sf);color:var(--tx);">
+      <div style="font-size:11px;color:var(--hint);">每週${DAYS[dayIndex]}固定在此時間截止</div>
+    </div>
+    <div style="text-align:center;color:var(--hint);font-size:12px;margin:6px 0;">— 或 —</div>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:var(--tx);margin-bottom:5px;">🗓 指定單次日期時間</div>
+      <input type="datetime-local" id="dlDatetimeInput" style="width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:14px;margin-bottom:4px;background:var(--sf);color:var(--tx);">
+      <div style="font-size:11px;color:var(--hint);">只有這一次有效，過後自動清除</div>
+    </div>
+    ${current?`<div style="margin-top:10px;padding:8px 10px;background:var(--al);border-radius:var(--rs);font-size:12px;color:var(--amber);">目前設定：${deadlineDisplayText(current)}</div>`:''}
+  `;
+  _modalCb=()=>{
+    const timeVal=document.getElementById('dlTimeInput').value;
+    const dtVal=document.getElementById('dlDatetimeInput').value;
+    if(dtVal){
+      // 指定日期優先
+      deadlines[d]=dtVal;
+    }else if(timeVal){
+      deadlines[d]=timeVal;
+    }else{
+      deadlines[d]='';
+    }
+    pushDeadlines();renderAdmin();renderRestBar();
+    showToast('截止時間已設定：'+(deadlineDisplayText(deadlines[d])||'已清除'));
+    return true;
+  };
+  document.getElementById('modalBg').classList.add('open');
+}
+function clearDeadline(dayKey){
+  deadlines[dayKey]='';
+  pushDeadlines();renderAdmin();renderRestBar();renderMenu();
+  showToast('已清除截止時間');
+}
+function adminSetDateDeadline(){
+  const dt=document.getElementById('aDeadlineDatetime').value;
+  const d=document.getElementById('aDeadlineDaySel').value;
+  if(!dt){showToast('請選擇日期時間');return;}
+  deadlines[d]=dt;
+  pushDeadlines();renderAdmin();renderRestBar();renderMenu();
+  showToast('截止時間已設定：'+deadlineDisplayText(dt));
+}
   const ns=['order','summary','history','admin'];
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',ns[i]===t));
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
@@ -1051,6 +1205,7 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
   else{console.error('Firebase 載入失敗');}
 })(20);
 renderAll();
-</script>
+startDeadlineTimer();
+
 </body>
 </html>
