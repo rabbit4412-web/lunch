@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.5 2026-05-06 -->
+<!-- lunch-v4.7 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.5 Firebase 即時同步</div>
+<div id="fbBanner">v4.7 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -782,7 +782,42 @@ function renderSummary(){
 function renderHistory(){
   const div=document.getElementById('historyList');
   if(!history.length){div.innerHTML='<div class="empty">尚無歷史訂單</div>';return;}
-  div.innerHTML=[...history].reverse().map((h,i)=>`<div class="hcard"><div class="hcard-head"><div><div class="hcard-title">${h.label}</div><div class="hcard-meta">共${h.count}份 · NT$${h.total} · ${h.date}</div></div><button class="hdel" onclick="delHist(${history.length-1-i})">刪除</button></div><div class="hcard-detail">${h.detail}</div></div>`).join('');
+  div.innerHTML=[...history].reverse().map((h,ri)=>{
+    const realIdx=history.length-1-ri;
+    // 新格式：h.persons=[{dept,name,items:[{label,qty,price}],total}]
+    // 舊格式：h.detail = string
+    let bodyHtml='';
+    if(h.persons&&h.persons.length){
+      // 依部門分組
+      const byDept={};
+      h.persons.forEach(p=>{
+        const d=p.dept||'';
+        if(!byDept[d])byDept[d]=[];
+        byDept[d].push(p);
+      });
+      bodyHtml=Object.keys(byDept).map(dept=>{
+        const rows=byDept[dept].map(p=>{
+          const itemText=p.items.map(it=>`${it.label}×${it.qty}`).join('、');
+          return `<div style="display:flex;align-items:baseline;padding:5px 14px;gap:8px;border-top:1px solid var(--bd);">
+            <span style="font-size:12px;font-weight:700;min-width:50px;flex:none;">${p.name}</span>
+            <span style="flex:1;font-size:12px;color:var(--sub);">${itemText}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap;">NT$${p.total}</span>
+          </div>`;
+        }).join('');
+        return `<div style="padding:5px 14px 2px;background:var(--sf2);border-top:1px solid var(--bd);font-size:10px;font-weight:700;color:var(--hint);letter-spacing:.06em;">${dept||'　'}</div>${rows}`;
+      }).join('');
+    }else{
+      // 舊格式 fallback
+      bodyHtml=`<div class="hcard-detail" style="padding:8px 14px;">${h.detail||''}</div>`;
+    }
+    return `<div class="hcard" style="padding:0;overflow:hidden;">
+      <div class="hcard-head" style="padding:10px 14px;">
+        <div><div class="hcard-title">${h.label}</div><div class="hcard-meta">共${h.count}份 · NT$${h.total} · ${h.date}</div></div>
+        ${isAdmin?`<button class="hdel" onclick="delHist(${realIdx})">刪除</button>`:''}
+      </div>
+      ${bodyHtml}
+    </div>`;
+  }).join('');
 }
 function renderAdmin(){
   if(!isAdmin)return;
@@ -837,10 +872,51 @@ function copyOrder(){
   navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('已複製！貼到 Line'));
 }
 function saveHistory(){
-  const r=todayRest();let total=0,cnt=0,items=[];
-  depts.forEach(d=>d.members.forEach(m=>{const o=getOrder(d.name,m);Object.keys(o.items||{}).forEach(k=>{const it=findItemByKey(r?.items,k);if(it){const optN=getOptName(o,k);total+=getItemTotalPrice(it,optN)*o.items[k];cnt+=o.items[k];items.push(getItemLabel(it,optN)+'×'+o.items[k]);}});}));
-  if(!cnt){showToast('訂單是空的');return;}
-  const now=new Date();history.push({label:`週${DAYS[curDayIdx]} ${r?.name||''}`,total,count:cnt,detail:items.join('、'),date:`${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`});
+  const r=todayRest();
+  if(!r){showToast('今日尚無菜單');return;}
+  let total=0,cnt=0;
+  const persons=[];
+  depts.forEach(d=>d.members.forEach(m=>{
+    if(!isLocked(d.name,m))return; // 只儲存已送出
+    const o=getOrder(d.name,m);
+    const rice=o.rice||'正常';
+    const grouped={};
+    let mt=0;
+    Object.keys(o.items||{}).forEach(k=>{
+      if(isAddonKey(k)){
+        const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);
+        if(addonPrice>0){const lb='+'+getOptDisplayName(addonN);if(!grouped[lb])grouped[lb]={qty:0,price:addonPrice};grouped[lb].qty+=(o.items[k]||0);mt+=addonPrice*(o.items[k]||0);}
+        return;
+      }
+      const it=findItemByKey(r.items,k);
+      if(it){
+        const optN=getOptName(o,k);
+        let lbl=it.name;
+        if(optN)lbl+=' | '+getOptDisplayName(optN);
+        const itHasRice=it.riceOptions&&it.riceOptions.length>0;
+        if(itHasRice&&rice!=='正常')lbl+=' | '+rice;
+        const unitPrice=getItemTotalPrice(it,optN);
+        if(!grouped[lbl])grouped[lbl]={qty:0,price:unitPrice};
+        grouped[lbl].qty+=o.items[k];
+        mt+=unitPrice*o.items[k];cnt+=o.items[k];
+      }
+    });
+    if(!Object.keys(grouped).length)return;
+    // 同品項按名稱排序
+    const items=Object.keys(grouped).sort((a,b)=>a.localeCompare(b,'zh-Hant'))
+      .map(lbl=>({label:lbl,qty:grouped[lbl].qty,price:grouped[lbl].price}));
+    total+=mt;
+    persons.push({dept:d.name,name:m,items,total:mt});
+  }));
+  if(!cnt){showToast('尚無已送出訂單可儲存');return;}
+  const now=new Date();
+  history.push({
+    label:`週${DAYS[curDayIdx]} ${r?.name||''}`,
+    total,count:cnt,
+    persons, // 新結構
+    detail:persons.map(p=>p.name+'：'+p.items.map(it=>it.label+'×'+it.qty).join('、')).join('　'), // 相容舊格式
+    date:`${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`
+  });
   localStorage.setItem('lunchH7',JSON.stringify(history));showToast('已儲存歷史');
 }
 function delHist(i){history.splice(i,1);localStorage.setItem('lunchH7',JSON.stringify(history));renderHistory();}
