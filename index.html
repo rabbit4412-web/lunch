@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.10 2026-05-11 -->
+<!-- lunch-v4.11 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.10 Firebase 即時同步</div>
+<div id="fbBanner">v4.11 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -1183,7 +1183,7 @@ function openDeadlineModal(dayIndex){
     }else{
       deadlines[d]='';
     }
-    pushDeadlines();renderAdmin();renderRestBar();
+    pushDeadlines();renderAll();renderAdmin();
     showToast('截止時間已設定：'+(deadlineDisplayText(deadlines[d])||'已清除'));
     return true;
   };
@@ -1191,7 +1191,7 @@ function openDeadlineModal(dayIndex){
 }
 function clearDeadline(dayKey){
   deadlines[dayKey]='';
-  pushDeadlines();renderAdmin();renderRestBar();renderMenu();
+  pushDeadlines();renderAll();renderAdmin();
   showToast('已清除截止時間');
 }
 function adminSetDateDeadline(){
@@ -1199,7 +1199,7 @@ function adminSetDateDeadline(){
   const d=document.getElementById('aDeadlineDaySel').value;
   if(!dt){showToast('請選擇日期時間');return;}
   deadlines[d]=dt;
-  pushDeadlines();renderAdmin();renderRestBar();renderMenu();
+  pushDeadlines();renderAll();renderAdmin();
   showToast('截止時間已設定：'+deadlineDisplayText(dt));
 }
   const ns=['order','summary','history','admin'];
