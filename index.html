@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.16 2026-05-11 -->
+<!-- lunch-v4.18 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.16 Firebase 即時同步</div>
+<div id="fbBanner">v4.18 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -320,7 +320,7 @@ button,input,select{font-family:inherit;}
     </div>
     <div class="admin-section">
       <h3>⏰ 點餐截止時間設定</h3>
-      <p style="font-size:12px;color:var(--sub);margin-bottom:12px;">設定後所有人到時間即無法點餐（管理員不受限制）</p>
+      <p style="font-size:12px;color:var(--sub);margin-bottom:12px;">設定後，到達截止時間起，本週剩餘工作日（週一至週五）皆無法點餐。管理員不受限制。</p>
       <div id="deadlineGrid" style="margin-bottom:12px;"></div>
       <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:12px 14px;">
         <div style="font-size:12px;font-weight:600;color:var(--tx);margin-bottom:8px;">設定截止日期時間（套用至所有天）</div>
@@ -531,20 +531,25 @@ function getDeadlineForDay(dayKey){
   return deadlines[dayKey]||'';
 }
 function isOrderClosed(){
-  const dl=getDeadlineForDay(dk());
+  // 取任一天的設定（全週共用同一個值）
+  const dl=DAY_KEYS.map(d=>deadlines[d]||'').find(v=>v)||'';
   if(!dl)return false;
   const now=new Date();
+  const dow=now.getDay(); // 0=日,1=一,...,5=五,6=六
+  // 只在週一到週五有效
+  if(dow===0||dow===6)return false;
+  let deadline;
   if(dl.includes('T')){
-    // datetime-local 格式 "YYYY-MM-DDTHH:MM" — 沒有時區，需手動當本地時間解析
     const [datePart,timePart]=dl.split('T');
     const [y,mo,d]=datePart.split('-').map(Number);
     const [hh,mm]=(timePart||'00:00').split(':').map(Number);
-    const deadline=new Date(y,mo-1,d,hh,mm,0); // 本地時間
-    return now>=deadline;
+    deadline=new Date(y,mo-1,d,hh,mm,0);
+  }else{
+    // 純時間 HH:MM → 用截止設定當天的日期
+    const [hh,mm]=dl.split(':').map(Number);
+    deadline=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm,0);
   }
-  // 純時間 HH:MM → 比對今天本地時間
-  const [hh,mm]=dl.split(':').map(Number);
-  const deadline=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm,0);
+  // 超過截止時間 → 鎖住（直到清除為止）
   return now>=deadline;
 }
 function deadlineDisplayText(dl){
@@ -713,7 +718,11 @@ function renderMenu(){
 
 function confirmOrder(){
   if(!curMember)return;
-  if(!isAdmin&&isOrderClosed()){showToast('點餐已截止，無法送出');return;}
+  if(isOrderClosed()){
+    if(!isAdmin){showToast('點餐已截止，無法送出');return;}
+    // 管理員可強制送出，但要確認
+    if(!confirm('[管理員] 點餐已截止，確定強制送出 '+curMember.name+' 的訂單？'))return;
+  }
   const o=getOrder(curMember.dept,curMember.name);
   if(!Object.keys(o.items||{}).length){showToast('請先點選餐點');return;}
   const total=mTotal(curMember.dept,curMember.name);
