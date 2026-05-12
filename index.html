@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.18 2026-05-11 -->
+<!-- lunch-v4.19 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.18 Firebase 即時同步</div>
+<div id="fbBanner">v4.19 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -466,8 +466,8 @@ const FB={
   projectId:"lunch-ec49c",storageBucket:"lunch-ec49c.firebasestorage.app",
   messagingSenderId:"555132314787",appId:"1:555132314787:web:6f9a2e1932bbaab2e7cb16"
 };
-const DAYS=['一','二','三','四','五'];
-const DAY_KEYS=['mon','tue','wed','thu','fri'];
+const DAYS=['一','二','三','四','五','test'];
+const DAY_KEYS=['mon','tue','wed','thu','fri','test'];
 
 let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
 let curCat='全部',curMember=null;
@@ -487,7 +487,7 @@ let depts=[
 let orders={mon:{},tue:{},wed:{},thu:{},fri:{}};
 let lockedOrders={mon:{},tue:{},wed:{},thu:{},fri:{}};
 // deadlines: {mon:'08:30', tue:'08:30', ...} 或 {mon:'2026-05-12T08:30', ...} 指定日期時間
-let deadlines={mon:'',tue:'',wed:'',thu:'',fri:''};
+let _deadline=''; // 單一截止時間，套用全週
 let history=JSON.parse(localStorage.getItem('lunchH7')||'[]');
 let rIdSeq=100,iIdSeq=1000;
 
@@ -511,7 +511,7 @@ function initFB(){
     db.ref('depts').on('value',s=>{if(_deptsLocalPush){_deptsLocalPush=false;return;}const v=s.val();if(v!=null){let arr=Array.isArray(v)?v:Object.values(v);depts=arr.filter(d=>d&&d.name).map(d=>({name:d.name,members:Array.isArray(d.members)?d.members:(d.members?Object.values(d.members):[])}));}renderAll();if(isAdmin)renderAdmin();});
     db.ref('.info/connected').on('value',s=>{setSS(s.val()?'ok':'off');renderAll();});
     db.ref('lockedOrders').on('value',s=>{const v=s.val();if(v)DAY_KEYS.forEach(dk=>{if(v[dk])lockedOrders[dk]=v[dk];});renderAll();});
-    db.ref('deadlines').on('value',s=>{const v=s.val();if(v)Object.assign(deadlines,v);renderAll();if(isAdmin)renderAdmin();startDeadlineTimer();});
+    db.ref('lunch_deadline').on('value',s=>{const v=s.val();_deadline=v||'';renderAll();if(isAdmin)renderAdmin();startDeadlineTimer();});
   }catch(e){console.error(e);setSS('off');document.getElementById('fbBanner').className='warn';document.getElementById('fbBanner').textContent='⚠️ Firebase 連線失敗';renderAll();}
 }
 function setSS(s){document.getElementById('syncDot').className='sync-dot'+(s==='syncing'?' syncing':s==='off'?' off':'');}
@@ -523,16 +523,14 @@ function pushLocked(){if(db)db.ref('lockedOrders/'+dk()).set(lockedOrders[dk()]|
 function isLocked(dept,member){return!!(lockedOrders[dk()]&&lockedOrders[dk()][dept+'__'+member]);}
 function lockMember(dept,member){if(!lockedOrders[dk()])lockedOrders[dk()]={};lockedOrders[dk()][dept+'__'+member]=true;pushLocked();}
 function unlockMember(dept,member){if(lockedOrders[dk()])delete lockedOrders[dk()][dept+'__'+member];pushLocked();}
-function pushDeadlines(){if(db)db.ref('deadlines').set(deadlines);}
+function pushDeadlines(){if(db)db.ref('lunch_deadline').set(_deadline);}
 
 /* ── 截止時間邏輯 ── */
 // deadline 格式：'HH:MM'（每週固定）或 'YYYY-MM-DDTHH:MM'（指定日期）
-function getDeadlineForDay(dayKey){
-  return deadlines[dayKey]||'';
-}
+function getDeadlineForDay(dayKey){return _deadline||'';}
 function isOrderClosed(){
   // 取任一天的設定（全週共用同一個值）
-  const dl=DAY_KEYS.map(d=>deadlines[d]||'').find(v=>v)||'';
+  const dl=_deadline||'';
   if(!dl)return false;
   const now=new Date();
   const dow=now.getDay(); // 0=日,1=一,...,5=五,6=六
@@ -926,7 +924,7 @@ function renderAdmin(){
   const dg=document.getElementById('deadlineGrid');
   if(dg){
     // 取任一天的設定（全週相同）
-    const anyDl=DAY_KEYS.map(d=>deadlines[d]||'').find(v=>v)||'';
+    const anyDl=_deadline||'';
     const dlText=anyDl?deadlineDisplayText(anyDl):'尚未設定';
     const closed=anyDl&&isOrderClosed();
     const color=anyDl?(closed?'var(--red)':'var(--amber)'):'var(--hint)';
@@ -1160,7 +1158,7 @@ document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===do
 /* ── 截止時間操作 ── */
 function openDeadlineModal(dayIndex){
   const d=DAY_KEYS[dayIndex];
-  const current=deadlines[d]||'';
+  const current=_deadline||'';
   document.getElementById('modalTitle').textContent='設定週'+DAYS[dayIndex]+'截止時間';
   // 判斷現有格式
   const isDateTime=current.includes('T');
@@ -1187,14 +1185,14 @@ function openDeadlineModal(dayIndex){
     if(useDateTime){
       const dtVal=document.getElementById('dlDatetimeInput').value;
       if(!dtVal){showToast('請選擇日期時間');return false;}
-      deadlines[d]=dtVal;
+      _deadline=dtVal;
     }else{
       const timeVal=document.getElementById('dlTimeInput').value;
       if(!timeVal){showToast('請選擇時間');return false;}
-      deadlines[d]=timeVal;
+      _deadline=timeVal;
     }
     pushDeadlines();renderAll();renderAdmin();
-    showToast('截止時間已設定：'+deadlineDisplayText(deadlines[d]));
+    showToast('截止時間已設定：'+deadlineDisplayText(_deadline));
     return true;
   };
   document.getElementById('modalBg').classList.add('open');
@@ -1221,20 +1219,20 @@ function dlSwitchMode(mode){
   }
 }
 function clearDeadline(dayKey){
-  deadlines[dayKey]='';
+  _deadline='';
   pushDeadlines();renderAll();renderAdmin();
   showToast('已清除截止時間');
 }
 function adminClearAllDeadlines(){
-  DAY_KEYS.forEach(d=>{deadlines[d]='';});
+  _deadline='';
   pushDeadlines();renderAll();renderAdmin();
-  showToast('已清除所有截止時間');
+  showToast('已清除截止時間');
 }
 function adminSetDateDeadline(){
   const dt=document.getElementById('aDeadlineDatetime').value;
   if(!dt){showToast('請選擇日期時間');return;}
   // 套用到所有天
-  DAY_KEYS.forEach(d=>{deadlines[d]=dt;});
+  _deadline=dt;
   pushDeadlines();renderAll();renderAdmin();
   showToast('已設定截止：'+deadlineDisplayText(dt)+'（週一至週五）');
 }
