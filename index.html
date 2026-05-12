@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.19 2026-05-11 -->
+<!-- lunch-v4.21 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.19 Firebase 即時同步</div>
+<div id="fbBanner">v4.21 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -507,11 +507,16 @@ function initFB(){
     firebase.initializeApp(FB);db=firebase.database();setSS('syncing');
     db.ref('orders').on('value',s=>{const v=s.val();if(v)DAY_KEYS.forEach(k=>{if(v[k])orders[k]=v[k];});renderAll();if(document.getElementById('panel-summary').classList.contains('active'))renderSummary();});
     db.ref('allRests').on('value',s=>{const v=s.val();if(v){allRests=v;const mx=Object.keys(allRests).map(k=>parseInt(k.replace('r',''))||0).reduce((a,b)=>Math.max(a,b),99);rIdSeq=mx+1;}renderAll();if(isAdmin)renderAdmin();if(document.getElementById('panel-summary').classList.contains('active'))renderSummary();});
-    db.ref('schedule').on('value',s=>{const v=s.val();if(v)Object.assign(schedule,v);renderAll();if(isAdmin)renderAdmin();});
+    db.ref('schedule').on('value',s=>{const v=s.val();if(v){const {__deadline,...rest}=v;Object.assign(schedule,rest);}renderAll();if(isAdmin)renderAdmin();});
     db.ref('depts').on('value',s=>{if(_deptsLocalPush){_deptsLocalPush=false;return;}const v=s.val();if(v!=null){let arr=Array.isArray(v)?v:Object.values(v);depts=arr.filter(d=>d&&d.name).map(d=>({name:d.name,members:Array.isArray(d.members)?d.members:(d.members?Object.values(d.members):[])}));}renderAll();if(isAdmin)renderAdmin();});
     db.ref('.info/connected').on('value',s=>{setSS(s.val()?'ok':'off');renderAll();});
     db.ref('lockedOrders').on('value',s=>{const v=s.val();if(v)DAY_KEYS.forEach(dk=>{if(v[dk])lockedOrders[dk]=v[dk];});renderAll();});
-    db.ref('lunch_deadline').on('value',s=>{const v=s.val();_deadline=v||'';renderAll();if(isAdmin)renderAdmin();startDeadlineTimer();});
+    db.ref('schedule/__deadline').on('value',s=>{
+      const v=s.val();
+      _deadline=(v&&typeof v==='string')?v:'';
+      console.log('deadline loaded:',_deadline);
+      renderAll();if(isAdmin)renderAdmin();startDeadlineTimer();
+    });
   }catch(e){console.error(e);setSS('off');document.getElementById('fbBanner').className='warn';document.getElementById('fbBanner').textContent='⚠️ Firebase 連線失敗';renderAll();}
 }
 function setSS(s){document.getElementById('syncDot').className='sync-dot'+(s==='syncing'?' syncing':s==='off'?' off':'');}
@@ -523,7 +528,12 @@ function pushLocked(){if(db)db.ref('lockedOrders/'+dk()).set(lockedOrders[dk()]|
 function isLocked(dept,member){return!!(lockedOrders[dk()]&&lockedOrders[dk()][dept+'__'+member]);}
 function lockMember(dept,member){if(!lockedOrders[dk()])lockedOrders[dk()]={};lockedOrders[dk()][dept+'__'+member]=true;pushLocked();}
 function unlockMember(dept,member){if(lockedOrders[dk()])delete lockedOrders[dk()][dept+'__'+member];pushLocked();}
-function pushDeadlines(){if(db)db.ref('lunch_deadline').set(_deadline);}
+function pushDeadlines(){
+  if(!db){showToast('⚠️ Firebase 未連線');return;}
+  db.ref('schedule/__deadline').set(_deadline||null)
+    .then(()=>console.log('deadline saved:',_deadline))
+    .catch(e=>{ console.error('deadline save failed:',e); showToast('⚠️ 截止時間儲存失敗：'+e.message); });
+}
 
 /* ── 截止時間邏輯 ── */
 // deadline 格式：'HH:MM'（每週固定）或 'YYYY-MM-DDTHH:MM'（指定日期）
