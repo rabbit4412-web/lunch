@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.24 2026-05-11 -->
+<!-- lunch-v4.25 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.24 Firebase 即時同步</div>
+<div id="fbBanner">v4.25 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -657,10 +657,20 @@ function renderDepts(){
       const t=mTotal(dept.name,m);const has=Object.keys(getOrder(dept.name,m).items||{}).length>0;
       const locked=isLocked(dept.name,m);
       if(locked)return`<div class="mchip locked">${m}<span class="locked-badge">✓已送出</span></div>`;
-      return`<div class="mchip${act?' active':''}" onclick="selMember('${dept.name}','${m}')">${m}${has?`<span class="mchip-sub">NT$${t}</span>`:''}</div>`;
+      return`<div class="mchip${act?' active':''}" data-dept="${di}" data-midx="${dept.members.indexOf(m)}">${m}${has?`<span class="mchip-sub">NT$${t}</span>`:''}</div>`;
     }).join('');
     return`<div class="dept-block"><div class="dept-head" onclick="toggleDept(${di})"><div class="dept-info"><span class="dept-name">${dept.name}</span><span class="dept-cnt">${dept.members.length}人</span></div><span class="dept-total">${dt>0?'NT$'+dt:''}</span></div><div class="dept-members" id="dm${di}">${mh}</div></div>`;
   }).join('');
+  // 事件委派：用 data-dept/data-midx 避免部門名稱或人名含特殊字元破壞 onclick
+  document.getElementById('deptBlocks').querySelectorAll('.mchip[data-dept]').forEach(el=>{
+    el.addEventListener('click',function(){
+      const di=parseInt(this.dataset.dept);
+      const mi=parseInt(this.dataset.midx);
+      const dept=depts[di];if(!dept)return;
+      const m=dept.members[mi];if(!m)return;
+      selMember(dept.name,m);
+    });
+  });
 }
 function renderCatBar(){
   const r=todayRest();const cats=['全部',...new Set((r?.items||[]).map(i=>i.cat))];
@@ -837,7 +847,10 @@ function renderSummary(){
     groupKeys.forEach(label=>{
       const grp=itemGroups[label];
       const grpTotal=grp.members.reduce((s,x)=>s+x.amt,0);const grpQty=grp.members.reduce((s,x)=>s+x.qty,0);
-      const rows=grp.members.map(x=>`<div class="sum-person-row"><span class="sum-person-name">${x.name}</span><span class="sum-person-qty">× ${x.qty}</span><span class="sum-person-amt">NT$${x.amt}</span>${isAdmin?`<button class="sum-cancel-btn" onclick="adminCancelItem('${dept.name}','${x.name}','${x.key}')">✕ 取消</button>`:''}</div>`).join('');
+      const rows=grp.members.map(x=>{
+        const cancelBtn=isAdmin?`<button class="sum-cancel-btn" data-cdept="${dept.name.replace(/"/g,'&quot;')}" data-cmem="${x.name.replace(/"/g,'&quot;')}" data-ckey="${x.key.replace(/"/g,'&quot;')}">✕ 取消</button>`:'';
+        return`<div class="sum-person-row"><span class="sum-person-name">${x.name}</span><span class="sum-person-qty">× ${x.qty}</span><span class="sum-person-amt">NT$${x.amt}</span>${cancelBtn}</div>`;
+      }).join('');
       pr+=`<div class="sum-item-group"><div class="sum-item-label"><span class="sum-item-label-name">${label}</span><span class="sum-item-label-total">共 ${grpQty} 份　NT$${grpTotal}</span></div>${rows}</div>`;
     });
     dhA+=`<div class="sum-dept"><div class="sum-dept-head"><span class="sum-dept-title">${dept.name}</span><span class="sum-dept-amt">NT$${dt}</span></div>${pr}</div>`;
@@ -905,6 +918,12 @@ function renderSummary(){
   document.getElementById('totalAmt').textContent='NT$'+gT;
   document.getElementById('totalCnt').textContent='共 '+gC+' 份';
   document.getElementById('hdrAmt').textContent='NT$'+gT;
+  // 事件委派：取消按鈕用 data 屬性
+  document.querySelectorAll('.sum-cancel-btn[data-cdept]').forEach(btn=>{
+    btn.addEventListener('click',function(){
+      adminCancelItem(this.dataset.cdept,this.dataset.cmem,this.dataset.ckey);
+    });
+  });
 }
 
 function renderHistory(){
