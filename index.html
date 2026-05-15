@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.22 2026-05-11 -->
+<!-- lunch-v4.24 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.22 Firebase 即時同步</div>
+<div id="fbBanner">v4.24 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -466,8 +466,8 @@ const FB={
   projectId:"lunch-ec49c",storageBucket:"lunch-ec49c.firebasestorage.app",
   messagingSenderId:"555132314787",appId:"1:555132314787:web:6f9a2e1932bbaab2e7cb16"
 };
-const DAYS=['一','二','三','四','五','test'];
-const DAY_KEYS=['mon','tue','wed','thu','fri','test'];
+const DAYS=['一','二','三','四','五'];
+const DAY_KEYS=['mon','tue','wed','thu','fri'];
 
 let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
 let curCat='全部',curMember=null;
@@ -685,10 +685,19 @@ function renderMenu(){
   }
   const items=curCat==='全部'?(r.items||[]):(r.items||[]).filter(i=>i.cat===curCat);
   if(!items.length){document.getElementById('menuGrid').innerHTML='<div style="padding:16px;font-size:13px;color:var(--hint);">此分類尚無餐點</div>';return;}
+  // 截止提示條：先渲染在最上方
+  let closedBanner='';
+  if(orderClosed){
+    const dlText=deadlineDisplayText(getDeadlineForDay(dk()));
+    closedBanner=`<div style="grid-column:1/-1;background:var(--rl);border:1px solid #F09595;border-radius:var(--rs);padding:11px 14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:18px;">🔒</span>
+      <div><div style="font-size:13px;font-weight:700;color:var(--red);">點餐已截止（${dlText}）</div><div style="font-size:11px;color:#a33;">如需取消截止，請管理員進入管理頁面清除</div></div>
+    </div>`;
+  }
   const o=getOrder(curMember.dept,curMember.name);
   const ro=o.rice||'正常';
   const rid=todayRid(),ro2=orders[dk()]?.[rid]||{};
-  document.getElementById('menuGrid').innerHTML=items.map(item=>{
+  document.getElementById('menuGrid').innerHTML=closedBanner+items.map(item=>{
     const hasOpts=item.options&&item.options.length>0;
     const sid=String(item.id);
     let tq=0;
@@ -697,9 +706,9 @@ function renderMenu(){
     let mq=0;myKeys.forEach(k=>mq+=o.items[k]);
     let body='';
     if(hasOpts){
-      const optBtns=item.options.map(opt=>{const k=sid+'_'+opt;const qty=o.items[k]||0;const extraP=parseOptPrice(opt);const dispN=getOptDisplayName(opt);const pTag=extraP>0?` <span style="font-size:10px;opacity:.8;color:var(--amber);">+${extraP}</span>`:'';return`<button class="opt-inline${qty>0?' active':''}" onclick="clickItemOpt(${item.id},'${opt}',event)">${dispN}${pTag}${qty>0?' ×'+qty:''}</button>`;}).join('');
+      const optBtns=item.options.map((opt,oi)=>{const k=sid+'_'+opt;const qty=o.items[k]||0;const extraP=parseOptPrice(opt);const dispN=getOptDisplayName(opt);const pTag=extraP>0?` <span style="font-size:10px;opacity:.8;color:var(--amber);">+${extraP}</span>`:'';return`<button class="opt-inline${qty>0?' active':''}" data-iid="${item.id}" data-oi="${oi}">${dispN}${pTag}${qty>0?' ×'+qty:''}</button>`;}).join('');
       body+=`<div class="opts-inline">${optBtns}</div>`;
-      myKeys.forEach(k=>{const optName=k.slice(sid.length+1);const qty=o.items[k];const dispOptName=getOptDisplayName(optName);const extraOptP=parseOptPrice(optName);const unitOptP=item.price+extraOptP;body+=`<div class="qty-ctrl" style="margin-top:4px;"><span style="font-size:11px;color:var(--gd);flex:1;">${dispOptName} <span style="color:var(--green);font-weight:700;">NT$${unitOptP}</span></span><button class="qty-b" onclick="chQty('${k}',-1,event)">−</button><span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${qty}</span><button class="qty-b" onclick="chQty('${k}',1,event)">+</button></div>`;});
+      myKeys.forEach(k=>{const optName=k.slice(sid.length+1);const qty=o.items[k];const dispOptName=getOptDisplayName(optName);const extraOptP=parseOptPrice(optName);const unitOptP=item.price+extraOptP;body+=`<div class="qty-ctrl" style="margin-top:4px;"><span style="font-size:11px;color:var(--gd);flex:1;">${dispOptName} <span style="color:var(--green);font-weight:700;">NT$${unitOptP}</span></span><button class="qty-b" data-key="${k}" data-d="-1">−</button><span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${qty}</span><button class="qty-b" data-key="${k}" data-d="1">+</button></div>`;});
     }else{
       const itemRices=item.riceOptions||(item.hasRice?['正常','半飯','不要飯']:null);
       const rh=mq>0&&itemRices?`<div class="rice-row">${itemRices.map(rv=>`<button class="rice-btn${ro===rv?' active':''}" onclick="setRice('${rv}',event)">${rv}</button>`).join('')}</div>`:'';
@@ -712,16 +721,27 @@ function renderMenu(){
   }).join('');
   const myO=getOrder(curMember.dept,curMember.name);
   const myTotal=mTotal(curMember.dept,curMember.name);
-  if(orderClosed){
-    // 截止後：顯示提示條，不顯示送出按鈕；已點的餐點仍然可見
-    const dlText=deadlineDisplayText(getDeadlineForDay(dk()));
-    document.getElementById('menuGrid').innerHTML+=`<div style="grid-column:1/-1;margin-top:4px;background:var(--rl);border:1px solid #F09595;border-radius:var(--rs);padding:11px 14px;display:flex;align-items:center;gap:8px;">
-      <span style="font-size:18px;">🔒</span>
-      <div><div style="font-size:13px;font-weight:700;color:var(--red);">點餐已截止（${dlText}）</div><div style="font-size:11px;color:#a33;">已點的餐點已記錄，請確認後由管理員送出</div></div>
-    </div>`;
-  }else if(Object.keys(myO.items||{}).length>0){
+  if(!orderClosed&&Object.keys(myO.items||{}).length>0){
     document.getElementById('menuGrid').innerHTML+=`<div style="grid-column:1/-1;margin-top:4px;"><button class="btn-confirm" onclick="confirmOrder()">✓ 確認送出（NT$${myTotal}）</button></div>`;
   }
+  // 事件委派：用 data 屬性避免選項名稱含特殊字元(引號等)破壞 inline onclick
+  document.getElementById('menuGrid').querySelectorAll('.opt-inline[data-iid]').forEach(btn=>{
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      const iid=this.dataset.iid;
+      const oi=parseInt(this.dataset.oi);
+      const item=(r.items||[]).find(i=>String(i.id)===String(iid));
+      if(item&&item.options&&item.options[oi]!==undefined){
+        clickItemOpt(iid,item.options[oi],e);
+      }
+    });
+  });
+  document.getElementById('menuGrid').querySelectorAll('.qty-b[data-key]').forEach(btn=>{
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      chQty(this.dataset.key,parseInt(this.dataset.d),e);
+    });
+  });
 }
 
 function confirmOrder(){
@@ -977,8 +997,8 @@ function selDay(i){curDayIdx=i;curCat='全部';curMember=null;renderAll();if(isA
 function selMember(dept,name){if(isLocked(dept,name)){showToast(name+' 已送出訂單，無法更改');return;}curMember={dept,name};renderDepts();renderMenu();}
 function selCat(c){curCat=c;renderCatBar();renderMenu();}
 function toggleDept(di){const el=document.getElementById('dm'+di);el.style.display=el.style.display==='none'?'':'none';}
-function clickItem(id){if(!curMember){showToast('請先選擇你的名字');return;}if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}addItemToOrder(id,null);}
-function clickItemOpt(id,opt,e){e.stopPropagation();if(!curMember){showToast('請先選擇你的名字');return;}if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}addItemToOrder(id,opt);}
+function clickItem(id){if(!curMember){showToast('請先選擇你的名字');return;}if(!isAdmin&&isOrderClosed()){showToast('點餐已截止，請管理員清除截止時間');return;}addItemToOrder(id,null);}
+function clickItemOpt(id,opt,e){e.stopPropagation();if(!curMember){showToast('請先選擇你的名字');return;}if(!isAdmin&&isOrderClosed()){showToast('點餐已截止，請管理員清除截止時間');return;}addItemToOrder(id,opt);}
 function addItemToOrder(id,option){const key=option?String(id)+'_'+option:String(id);mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};o.items[key]=(o.items[key]||0)+1;});renderDepts();renderMenu();updateHdr();renderWeek();}
 function closeOptionModal(){document.getElementById('optionModal').classList.remove('open');}
 function chQty(key,d,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}mutOrder(curMember.dept,curMember.name,o=>{const nv=Math.max(0,(o.items[key]||0)+d);if(nv===0){delete o.items[key];if(o.itemOptions)delete o.itemOptions[key];}else o.items[key]=nv;});renderDepts();renderMenu();updateHdr();renderWeek();}
