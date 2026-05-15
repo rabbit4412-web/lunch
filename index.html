@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.25 2026-05-11 -->
+<!-- lunch-v4.26 2026-05-11 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.25 Firebase 即時同步</div>
+<div id="fbBanner">v4.26 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -674,7 +674,10 @@ function renderDepts(){
 }
 function renderCatBar(){
   const r=todayRest();const cats=['全部',...new Set((r?.items||[]).map(i=>i.cat))];
-  document.getElementById('catBar').innerHTML=cats.map(c=>`<button class="cat-btn${c===curCat?' active':''}" onclick="selCat('${c}')">${c}</button>`).join('');
+  document.getElementById('catBar').innerHTML=cats.map((c,i)=>`<button class="cat-btn${c===curCat?' active':''}" data-ci="${i}">${c}</button>`).join('');
+  document.getElementById('catBar').querySelectorAll('.cat-btn[data-ci]').forEach(btn=>{
+    btn.addEventListener('click',function(){selCat(cats[parseInt(this.dataset.ci)]);});
+  });
 }
 function renderMenu(){
   const r=todayRest();
@@ -721,10 +724,10 @@ function renderMenu(){
       myKeys.forEach(k=>{const optName=k.slice(sid.length+1);const qty=o.items[k];const dispOptName=getOptDisplayName(optName);const extraOptP=parseOptPrice(optName);const unitOptP=item.price+extraOptP;body+=`<div class="qty-ctrl" style="margin-top:4px;"><span style="font-size:11px;color:var(--gd);flex:1;">${dispOptName} <span style="color:var(--green);font-weight:700;">NT$${unitOptP}</span></span><button class="qty-b" data-key="${k}" data-d="-1">−</button><span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${qty}</span><button class="qty-b" data-key="${k}" data-d="1">+</button></div>`;});
     }else{
       const itemRices=item.riceOptions||(item.hasRice?['正常','半飯','不要飯']:null);
-      const rh=mq>0&&itemRices?`<div class="rice-row">${itemRices.map(rv=>`<button class="rice-btn${ro===rv?' active':''}" onclick="setRice('${rv}',event)">${rv}</button>`).join('')}</div>`:'';
-      const qh=mq>0?`<div class="qty-ctrl"><button class="qty-b" onclick="chQty('${sid}',-1,event)">−</button><span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${mq}</span><button class="qty-b" onclick="chQty('${sid}',1,event)">+</button></div>`:'';
+      const rh=mq>0&&itemRices?`<div class="rice-row">${itemRices.map((rv,ri)=>`<button class="rice-btn${ro===rv?' active':''}" data-ri="${ri}" data-sid="${sid}">${rv}</button>`).join('')}</div>`:'';
+      const qh=mq>0?`<div class="qty-ctrl"><button class="qty-b" data-key="${sid}" data-d="-1">−</button><span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${mq}</span><button class="qty-b" data-key="${sid}" data-d="1">+</button></div>`:'';
       let addonHtml='';
-      if(item.addons&&item.addons.length>0){const addonBtns=item.addons.map(addon=>{const ak=sid+'_ADD_'+addon;const aqty=o.items[ak]||0;const aPrice=parseOptPrice(addon);const aName=getOptDisplayName(addon);return`<button class="rice-btn${aqty>0?' active':''}" style="${aqty>0?'background:var(--gl);color:var(--gm);border-color:var(--green);':''}" onclick="toggleAddon('${sid}','${addon}',event)">${aName}${aPrice>0?' +'+aPrice:''}${aqty>0?' ✓':''}</button>`;}).join('');addonHtml=`<div class="rice-row" style="margin-top:5px;">${addonBtns}</div>`;}
+      if(item.addons&&item.addons.length>0){const addonBtns=item.addons.map((addon,ai)=>{const ak=sid+'_ADD_'+addon;const aqty=o.items[ak]||0;const aPrice=parseOptPrice(addon);const aName=getOptDisplayName(addon);return`<button class="rice-btn${aqty>0?' active':''}" style="${aqty>0?'background:var(--gl);color:var(--gm);border-color:var(--green);':''}" data-addon-sid="${sid}" data-ai="${ai}">${aName}${aPrice>0?' +'+aPrice:''}${aqty>0?' ✓':''}</button>`;}).join('');addonHtml=`<div class="rice-row" style="margin-top:5px;">${addonBtns}</div>`;}
       body=qh+rh+addonHtml;
     }
     return`<div class="mcard${mq>0?' sel':''}" onclick="${orderClosed?'void(0)':(hasOpts?'void(0)':'clickItem('+item.id+')')}">${tq>0?`<div class="qbadge">${tq}</div>`:''}<div class="cat-tag">${item.cat}</div><div class="mname">${item.name}</div><div class="mprice">NT$${item.price}${mq>0&&!hasOpts?' ×'+mq:''}</div>${body}</div>`;
@@ -750,6 +753,25 @@ function renderMenu(){
     btn.addEventListener('click',function(e){
       e.stopPropagation();
       chQty(this.dataset.key,parseInt(this.dataset.d),e);
+    });
+  });
+  document.getElementById('menuGrid').querySelectorAll('.rice-btn[data-ri]').forEach(btn=>{
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      const itemRices=(r.items||[]).find(i=>String(i.id)===this.dataset.sid);
+      const riceOpts=itemRices?.riceOptions||['正常','半飯','不要飯'];
+      setRice(riceOpts[parseInt(this.dataset.ri)],e);
+    });
+  });
+  document.getElementById('menuGrid').querySelectorAll('.rice-btn[data-addon-sid]').forEach(btn=>{
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      const sid=this.dataset.addonSid;
+      const ai=parseInt(this.dataset.ai);
+      const item=(r.items||[]).find(i=>String(i.id)===sid);
+      if(item&&item.addons&&item.addons[ai]!==undefined){
+        toggleAddon(sid,item.addons[ai],e);
+      }
     });
   });
 }
