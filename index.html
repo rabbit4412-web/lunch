@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.31 2026-05-25 -->
+<!-- lunch-v4.32 2026-05-25 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.31 Firebase 即時同步</div>
+<div id="fbBanner">v4.32 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -467,8 +467,8 @@ const FB={
   projectId:"lunch-ec49c",storageBucket:"lunch-ec49c.firebasestorage.app",
   messagingSenderId:"555132314787",appId:"1:555132314787:web:6f9a2e1932bbaab2e7cb16"
 };
-const DAYS=['一','二','三','四','五','test'];
-const DAY_KEYS=['mon','tue','wed','thu','fri','test'];
+const DAYS=['一','二','三','四','五'];
+const DAY_KEYS=['mon','tue','wed','thu','fri'];
 
 let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
 let curCat='全部',curMember=null;
@@ -792,8 +792,11 @@ function confirmOrder(){
     ${closedMsg}`;
   _modalCb=()=>{
     lockMember(curMember.dept,curMember.name);
-    curMember=null;renderAll();showToast('訂單已送出！');
-    return true;
+    curMember=null;
+    closeModal(); // 先關閉 modal，再重繪，避免 renderAll 觸發 DOM 事件干擾 modal 狀態
+    renderAll();
+    showToast('訂單已送出！');
+    return false; // 已手動關閉
   };
   document.getElementById('modalBg').classList.add('open');
 }
@@ -811,8 +814,9 @@ function adminCancelItem(deptName,memberName,itemKey){
     mutOrder(deptName,memberName,ord=>{delete ord.items[itemKey];});
     const remaining=Object.keys(getOrder(deptName,memberName).items||{});
     if(!remaining.length)unlockMember(deptName,memberName);
+    closeModal();
     renderAll();renderSummary();showToast('[管理員] 已取消 '+memberName+' 的 '+displayLabel);
-    return true;
+    return false;
   };
   document.getElementById('modalBg').classList.add('open');
 }
@@ -1048,7 +1052,12 @@ function renderAdmin(){
 
 /* ── user actions ── */
 function selDay(i){curDayIdx=i;curCat='全部';curMember=null;renderAll();if(isAdmin)renderAdmin();}
-function selMember(dept,name){if(isLocked(dept,name)){showToast(name+' 已送出訂單，無法更改');return;}curMember={dept,name};renderDepts();renderMenu();}
+function selMember(dept,name){
+  if(isLocked(dept,name)){showToast(name+' 已送出訂單，無法更改');return;}
+  curMember={dept,name};
+  curCat='全部'; // 切換人員時重置分類，避免舊分類篩選導致菜單不顯示
+  renderDepts();renderCatBar();renderMenu();
+}
 function selCat(c){curCat=c;renderCatBar();renderMenu();}
 function toggleDept(di){const el=document.getElementById('dm'+di);el.style.display=el.style.display==='none'?'':'none';}
 function clickItem(id){if(!curMember){showToast('請先選擇你的名字');return;}if(!isAdmin&&isOrderClosed()){showToast('點餐已截止，請管理員清除截止時間');return;}addItemToOrder(id,null);}
