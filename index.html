@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.30 2026-05-19 -->
+<!-- lunch-v4.31 2026-05-25 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.30 Firebase 即時同步</div>
+<div id="fbBanner">v4.31 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -1133,7 +1133,16 @@ function openSchedModal(di){
   const rids=Object.keys(allRests);if(!rids.length){showToast('請先新增店家');return;}
   document.getElementById('modalTitle').textContent='設定週'+DAYS[di]+'的店家';
   document.getElementById('modalBody').innerHTML=`<select id="schedSel" style="width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:14px;margin-bottom:10px;background:var(--sf);color:var(--tx);"><option value="">（不安排）</option>${rids.map(rid=>`<option value="${rid}"${schedule[DAY_KEYS[di]]===rid?' selected':''}>${allRests[rid].name}</option>`).join('')}</select>`;
-  _modalCb=()=>{const v=document.getElementById('schedSel').value;schedule[DAY_KEYS[di]]=v||null;pushSchedule();if(di===curDayIdx)renderAll();renderAdmin();showToast('已設定週'+DAYS[di]);return true;};
+  _modalCb=()=>{
+    const v=document.getElementById('schedSel').value;
+    schedule[DAY_KEYS[di]]=v||null;
+    pushSchedule();
+    closeModal();
+    if(di===curDayIdx)renderAll();
+    renderAdmin();
+    showToast('已設定週'+DAYS[di]);
+    return false; // 已手動關閉，不讓 confirmModal 再關一次
+  };
   document.getElementById('modalBg').classList.add('open');
 }
 function openEditRest(rid){editingRid=rid;renderAdmin();document.getElementById('editRestSection').scrollIntoView({behavior:'smooth'});}
@@ -1275,9 +1284,11 @@ function openDeadlineModal(dayIndex){
       if(!timeVal){showToast('請選擇時間');return false;}
       _deadline=timeVal;
     }
-    pushDeadlines();renderAll();renderAdmin();
+    pushDeadlines();
+    closeModal();
+    renderAll();renderAdmin();
     showToast('截止時間已設定：'+deadlineDisplayText(_deadline));
-    return true;
+    return false; // 已手動關閉
   };
   document.getElementById('modalBg').classList.add('open');
 }
