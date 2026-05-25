@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.26 2026-05-11 -->
+<!-- lunch-v4.27 2026-05-18 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.26 Firebase 即時同步</div>
+<div id="fbBanner">v4.27 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -466,8 +466,8 @@ const FB={
   projectId:"lunch-ec49c",storageBucket:"lunch-ec49c.firebasestorage.app",
   messagingSenderId:"555132314787",appId:"1:555132314787:web:6f9a2e1932bbaab2e7cb16"
 };
-const DAYS=['一','二','三','四','五'];
-const DAY_KEYS=['mon','tue','wed','thu','fri'];
+const DAYS=['一','二','三','四','五','test'];
+const DAY_KEYS=['mon','tue','wed','thu','fri','test'];
 
 let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
 let curCat='全部',curMember=null;
@@ -778,16 +778,23 @@ function renderMenu(){
 
 function confirmOrder(){
   if(!curMember)return;
-  if(isOrderClosed()){
-    if(!isAdmin){showToast('點餐已截止，無法送出');return;}
-    // 管理員可強制送出，但要確認
-    if(!confirm('[管理員] 點餐已截止，確定強制送出 '+curMember.name+' 的訂單？'))return;
-  }
+  if(isOrderClosed()&&!isAdmin){showToast('點餐已截止，無法送出');return;}
   const o=getOrder(curMember.dept,curMember.name);
   if(!Object.keys(o.items||{}).length){showToast('請先點選餐點');return;}
   const total=mTotal(curMember.dept,curMember.name);
-  if(!confirm(curMember.name+' 確認送出訂單？\n送出後無法更改\n合計：NT$'+total))return;
-  lockMember(curMember.dept,curMember.name);curMember=null;renderAll();showToast('訂單已送出！');
+  const closedMsg=isOrderClosed()&&isAdmin?'<div style="font-size:12px;color:var(--red);margin-top:6px;">⚠️ 點餐已截止，管理員強制送出</div>':'';
+  // 用內建 modal 取代 confirm()，避免手機 Line/WebView 封鎖
+  document.getElementById('modalTitle').textContent=curMember.name+' 確認送出？';
+  document.getElementById('modalBody').innerHTML=`
+    <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px;">合計：NT$${total}</div>
+    <div style="font-size:13px;color:var(--sub);">送出後無法自行更改</div>
+    ${closedMsg}`;
+  _modalCb=()=>{
+    lockMember(curMember.dept,curMember.name);
+    curMember=null;renderAll();showToast('訂單已送出！');
+    return true;
+  };
+  document.getElementById('modalBg').classList.add('open');
 }
 
 /* ── 管理員取消單一餐點 ── */
@@ -797,11 +804,16 @@ function adminCancelItem(deptName,memberName,itemKey){
   let displayLabel=itemKey;
   if(isAddonKey(itemKey)){displayLabel='+ '+getOptDisplayName(getAddonName(itemKey));}
   else{const it=findItemByKey(r?.items,itemKey);if(it){const optN=getOptName(o,itemKey);displayLabel=it.name+(optN?' | '+getOptDisplayName(optN):'');}}
-  if(!confirm('[管理員] 確定取消 '+memberName+' 的「'+displayLabel+'」？'))return;
-  mutOrder(deptName,memberName,ord=>{delete ord.items[itemKey];});
-  const remaining=Object.keys(getOrder(deptName,memberName).items||{});
-  if(!remaining.length)unlockMember(deptName,memberName);
-  renderAll();renderSummary();showToast('[管理員] 已取消 '+memberName+' 的 '+displayLabel);
+  document.getElementById('modalTitle').textContent='[管理員] 確定取消？';
+  document.getElementById('modalBody').innerHTML=`<div style="font-size:14px;margin-bottom:4px;">${memberName} 的「${displayLabel}」</div>`;
+  _modalCb=()=>{
+    mutOrder(deptName,memberName,ord=>{delete ord.items[itemKey];});
+    const remaining=Object.keys(getOrder(deptName,memberName).items||{});
+    if(!remaining.length)unlockMember(deptName,memberName);
+    renderAll();renderSummary();showToast('[管理員] 已取消 '+memberName+' 的 '+displayLabel);
+    return true;
+  };
+  document.getElementById('modalBg').classList.add('open');
 }
 
 /* ── 總覽子分頁 ── */
