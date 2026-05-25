@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.29 2026-05-19 -->
+<!-- lunch-v4.30 2026-05-19 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -229,11 +229,10 @@ button,input,select{font-family:inherit;}
 .admin-hint{background:var(--pl);border:1px solid #AFA9EC;border-radius:var(--rs);padding:8px 12px;font-size:12px;color:var(--purple);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 @media(max-width:380px){.menu-grid{grid-template-columns:repeat(2,1fr);}}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
-<div id="fbBanner">v4.29 Firebase 即時同步</div>
+<div id="fbBanner">v4.30 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -1336,7 +1335,6 @@ function downloadExcel(){
   const dayName='週'+DAYS[curDayIdx];
   const shopName=r?r.name:'';
 
-  // ── 收集資料 ──
   function buildLabel(item,optName,rice){
     let label=item.name;
     if(optName)label+=' | '+getOptDisplayName(optName);
@@ -1345,10 +1343,10 @@ function downloadExcel(){
     return label;
   }
 
-  // 依部門 → 品項 → 人員 收集
-  const deptData=[];
+  // 收集資料
   let grandTotal=0,grandCnt=0;
-  const mergedAll={}; // for sheet3
+  const deptData=[];
+  const mergedAll={};
 
   depts.forEach(dept=>{
     const itemGroups={};
@@ -1359,8 +1357,10 @@ function downloadExcel(){
       Object.keys(o.items||{}).forEach(k=>{
         if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);if(addonPrice>0){const lb='+ '+getOptDisplayName(addonN);if(!itemGroups[lb])itemGroups[lb]={price:addonPrice,cat:'加點',persons:[]};itemGroups[lb].persons.push({name:m,qty:o.items[k]||0,amt:addonPrice*(o.items[k]||0)});deptTotal+=addonPrice*(o.items[k]||0);deptCnt+=(o.items[k]||0);}return;}
         const it=findItemByKey(r.items,k);
-        if(it){const optN=getOptName(o,k);const price=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);const amt=price*(o.items[k]||0);if(!itemGroups[label])itemGroups[label]={price,cat:it.cat||'其他',persons:[]};itemGroups[label].persons.push({name:m,qty:o.items[k],amt});deptTotal+=amt;deptCnt+=o.items[k];
-          // merged
+        if(it){const optN=getOptName(o,k);const price=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);const amt=price*(o.items[k]||0);
+          if(!itemGroups[label])itemGroups[label]={price,cat:it.cat||'其他',persons:[]};
+          itemGroups[label].persons.push({name:m,qty:o.items[k],amt});
+          deptTotal+=amt;deptCnt+=o.items[k];
           if(!mergedAll[label])mergedAll[label]={price,qty:0,cat:it.cat||'其他'};mergedAll[label].qty+=o.items[k];
         }
       });
@@ -1370,177 +1370,90 @@ function downloadExcel(){
 
   if(!deptData.length){showToast('尚無已送出訂單');return;}
 
-  const WB=XLSX.utils.book_new();
+  const title=`${dayName} · ${shopName}　共 ${grandCnt} 份　NT$${grandTotal}`;
 
-  // ── 工具函數 ──
-  const COLS=['A','B','C','D','E','F','G','H'];
-  function cell(ws,addr,v,s){ws[addr]={v,t:typeof v==='number'?'n':'s',s:s||{}};}
-  function merge(ws,s,e){if(!ws['!merges'])ws['!merges']=[];ws['!merges'].push({s,e});}
-  function mkStyle(bold,fgColor,bgColor,hAlign,vAlign,wrapText,border){
-    return{
-      font:{name:'Arial',bold:!!bold,sz:bold?10:9,color:{rgb:fgColor||'000000'}},
-      fill:bgColor?{patternType:'solid',fgColor:{rgb:bgColor}}:{patternType:'none'},
-      alignment:{horizontal:hAlign||'left',vertical:vAlign||'center',wrapText:!!wrapText},
-      border:border?{top:{style:'thin',color:{rgb:'DDDDDD'}},bottom:{style:'thin',color:{rgb:'DDDDDD'}},left:{style:'thin',color:{rgb:'DDDDDD'}},right:{style:'thin',color:{rgb:'DDDDDD'}}}:{}
-    };
-  }
+  // ── 用 HTML Table 格式輸出（Excel 可直接開啟）──
+  const G='#1D9E75',GL='#E1F5EE',GD='#085041',GRAY='#F9F8F5',WHITE='#fff';
+  function tr(cells,bg=''){return`<tr>${cells.map(c=>`<td style="font-family:Arial;font-size:10pt;padding:4px 8px;border:1px solid #ddd;${c.bold?'font-weight:bold;':''}${c.color?`color:${c.color};`:''}${bg||c.bg?`background:${c.bg||bg};`:''}${c.align?`text-align:${c.align};`:''}${c.colspan?`" colspan="${c.colspan}`:''}">${c.v??''}</td>`).join('')}</tr>`;}
+  function th(v,color,bg,align,colspan){return{v,bold:true,color,bg,align,colspan};}
+  function td(v,color,bg,align){return{v,color,bg,align};}
 
-  // ═══════════════════════════════════
-  // Sheet 1: 依品項分組
-  // ═══════════════════════════════════
-  const ws1={};
-  let row=1;
+  let html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><meta name=ProgId content=Excel.Sheet><meta name=Generator content="Microsoft Excel 11"><style>table{border-collapse:collapse;}td{white-space:pre-wrap;}</style></head><body>';
 
-  // Title
-  const title1=`${dayName} · ${shopName}　共 ${grandCnt} 份　NT$${grandTotal}`;
-  cell(ws1,`A${row}`,title1,mkStyle(true,'FFFFFF','1D9E75','center'));
-  merge(ws1,{r:row-1,c:0},{r:row-1,c:6});
-  row++;
-
-  // Column header
-  ['','品項','人員','數量','單價','小計',''].forEach((h,ci)=>{
-    cell(ws1,`${COLS[ci]}${row}`,h,mkStyle(true,'888888','F4F3EF','center'));
-  });
-  row++;
-
+  // ── Sheet 1: 依品項分組 ──
+  html+=`<table><tr><td colspan="7" style="font-family:Arial;font-size:13pt;font-weight:bold;color:${WHITE};background:${G};padding:8px 14px;text-align:center;">${title}</td></tr>`;
+  html+=tr([th('部門',WHITE,G),th('品項','555555',GRAY),th('人員','555555',GRAY),th('數量','555555',GRAY,'center'),th('單價','555555',GRAY,'right'),th('小計','555555',GRAY,'right'),th('',null,GRAY)]);
   deptData.forEach(dept=>{
-    // Dept header
-    cell(ws1,`A${row}`,dept.name,mkStyle(true,GREEN,'E1F5EE'));
-    merge(ws1,{r:row-1,c:0},{r:row-1,c:4});
-    cell(ws1,`F${row}`,'NT$'+dept.total,mkStyle(true,GREEN,'E1F5EE','right'));
-    merge(ws1,{r:row-1,c:5},{r:row-1,c:6});
-    row++;
-
-    // Sort items by cat then label
-    const sortedItems=Object.entries(dept.items).sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant'));
-    sortedItems.forEach(([label,grp])=>{
+    html+=`<tr><td colspan="5" style="font-family:Arial;font-weight:bold;color:${GD};background:${GL};padding:5px 8px;">${dept.name}</td><td colspan="2" style="font-family:Arial;font-weight:bold;color:${G};background:${GL};text-align:right;padding:5px 8px;">NT$${dept.total}</td></tr>`;
+    Object.entries(dept.items).sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant')).forEach(([label,grp])=>{
       const grpQty=grp.persons.reduce((s,x)=>s+x.qty,0);
       const grpAmt=grp.persons.reduce((s,x)=>s+x.amt,0);
-      // Item label row
-      cell(ws1,`B${row}`,label,mkStyle(true,'085041','F9F8F5'));
-      merge(ws1,{r:row-1,c:1},{r:row-1,c:3});
-      cell(ws1,`E${row}`,`共 ${grpQty} 份`,mkStyle(false,'888888','F9F8F5','right'));
-      cell(ws1,`F${row}`,'NT$'+grpAmt,mkStyle(false,'888888','F9F8F5','right'));
-      merge(ws1,{r:row-1,c:5},{r:row-1,c:6});
-      row++;
+      html+=`<tr><td style="background:${GRAY}"></td><td colspan="3" style="font-family:Arial;font-weight:bold;color:${GD};background:${GRAY};padding:4px 8px;">${label}</td><td style="font-family:Arial;color:#888;background:${GRAY};text-align:right;">共 ${grpQty} 份</td><td style="font-family:Arial;color:#888;background:${GRAY};text-align:right;">NT$${grpAmt}</td><td style="background:${GRAY}"></td></tr>`;
       grp.persons.forEach(p=>{
-        cell(ws1,`C${row}`,p.name,mkStyle(true,'1a1a1a',null));
-        cell(ws1,`D${row}`,'× '+p.qty,mkStyle(false,'666666',null,'center'));
-        cell(ws1,`E${row}`,grp.price,mkStyle(false,'666666',null,'right'));
-        cell(ws1,`F${row}`,p.amt,mkStyle(true,'1D9E75',null,'right'));
-        merge(ws1,{r:row-1,c:5},{r:row-1,c:6});
-        row++;
+        html+=`<tr><td></td><td></td><td style="font-family:Arial;font-weight:bold;padding:3px 8px;">${p.name}</td><td style="font-family:Arial;color:#666;text-align:center;">× ${p.qty}</td><td style="font-family:Arial;color:#666;text-align:right;">${grp.price}</td><td style="font-family:Arial;font-weight:bold;color:${G};text-align:right;">NT$${p.amt}</td><td></td></tr>`;
       });
     });
   });
+  html+=`<tr><td colspan="5" style="font-family:Arial;font-weight:bold;color:${WHITE};background:${GD};padding:5px 8px;">合計</td><td colspan="2" style="font-family:Arial;font-weight:bold;color:${WHITE};background:${GD};text-align:right;padding:5px 8px;">NT$${grandTotal}</td></tr>`;
+  html+='</table>';
 
-  // Grand total row
-  cell(ws1,`A${row}`,'合計',mkStyle(true,'FFFFFF','085041','center'));
-  merge(ws1,{r:row-1,c:0},{r:row-1,c:4});
-  cell(ws1,`F${row}`,'NT$'+grandTotal,mkStyle(true,'FFFFFF','085041','right'));
-  merge(ws1,{r:row-1,c:5},{r:row-1,c:6});
-
-  ws1['!ref']=`A1:G${row}`;
-  ws1['!cols']=[{wch:10},{wch:28},{wch:10},{wch:8},{wch:9},{wch:10},{wch:4}];
-  XLSX.utils.book_append_sheet(WB,ws1,'依品項分組');
-
-  // ═══════════════════════════════════
-  // Sheet 2: 個人點餐明細
-  // ═══════════════════════════════════
-  const ws2={};
-  row=1;
-  cell(ws2,`A${row}`,title1,mkStyle(true,'FFFFFF','1D9E75','center'));
-  merge(ws2,{r:0,c:0},{r:0,c:5});
-  row++;
-  ['部門','人員','餐點','份數','金額',''].forEach((h,ci)=>{
-    cell(ws2,`${COLS[ci]}${row}`,h,mkStyle(true,'888888','F4F3EF','center'));
-  });
-  row++;
-
+  // ── Sheet 2: 個人點餐明細（新頁）──
+  html+='<br><br>';
+  html+=`<table><tr><td colspan="5" style="font-family:Arial;font-size:13pt;font-weight:bold;color:${WHITE};background:${G};padding:8px 14px;text-align:center;">${title}</td></tr>`;
+  html+=tr([th('部門',WHITE,G),th('人員','555555',GRAY),th('餐點','555555',GRAY),th('','555555',GRAY),th('金額','555555',GRAY,'right')]);
   depts.forEach(dept=>{
-    let deptTotal=0;const rows=[];
+    let deptTotal=0;const rows2=[];
     dept.members.forEach(m=>{
       if(!isLocked(dept.name,m))return;
       const o=getOrder(dept.name,m);const rice=o.rice||'正常';
       let mt=0;const grouped={};
       Object.keys(o.items||{}).forEach(k=>{
-        if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);if(addonPrice>0){const lb='+'+getOptDisplayName(addonN);if(!grouped[lb])grouped[lb]={qty:0,price:addonPrice};grouped[lb].qty+=(o.items[k]||0);mt+=addonPrice*(o.items[k]||0);}return;}
+        if(isAddonKey(k)){const addonN=getAddonName(k);const ap=parseOptPrice(addonN);if(ap>0){const lb='+'+getOptDisplayName(addonN);if(!grouped[lb])grouped[lb]={qty:0,price:ap};grouped[lb].qty+=(o.items[k]||0);mt+=ap*(o.items[k]||0);}return;}
         const it=findItemByKey(r.items,k);
         if(it){const optN=getOptName(o,k);const price=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);if(!grouped[label])grouped[label]={qty:0,price};grouped[label].qty+=o.items[k];mt+=price*o.items[k];}
       });
       if(!Object.keys(grouped).length)return;
       deptTotal+=mt;
       const itemText=Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant')).map(([n,g])=>n+'×'+g.qty).join('、');
-      rows.push({name:m,itemText,total:mt});
+      rows2.push({name:m,itemText,total:mt});
     });
-    if(!rows.length)return;
-    cell(ws2,`A${row}`,dept.name,mkStyle(true,GREEN,'E1F5EE'));
-    merge(ws2,{r:row-1,c:0},{r:row-1,c:4});
-    cell(ws2,`E${row}`,'NT$'+deptTotal,mkStyle(true,GREEN,'E1F5EE','right'));
-    row++;
-    rows.forEach(p=>{
-      cell(ws2,`B${row}`,p.name,mkStyle(true,'1a1a1a',null));
-      cell(ws2,`C${row}`,p.itemText,mkStyle(false,'444444',null,'left',null,true));
-      cell(ws2,`E${row}`,'NT$'+p.total,mkStyle(true,'1D9E75',null,'right'));
-      row++;
+    if(!rows2.length)return;
+    html+=`<tr><td style="font-family:Arial;font-weight:bold;color:${GD};background:${GL};padding:5px 8px;">${dept.name}</td><td colspan="3" style="background:${GL}"></td><td style="font-family:Arial;font-weight:bold;color:${G};background:${GL};text-align:right;padding:5px 8px;">NT$${deptTotal}</td></tr>`;
+    rows2.forEach(p=>{
+      html+=`<tr><td></td><td style="font-family:Arial;font-weight:bold;padding:3px 8px;">${p.name}</td><td colspan="2" style="font-family:Arial;padding:3px 8px;">${p.itemText}</td><td style="font-family:Arial;font-weight:bold;color:${G};text-align:right;padding:3px 8px;">NT$${p.total}</td></tr>`;
     });
   });
-  cell(ws2,`A${row}`,'合計',mkStyle(true,'FFFFFF','085041','center'));
-  merge(ws2,{r:row-1,c:0},{r:row-1,c:3});
-  cell(ws2,`E${row}`,'NT$'+grandTotal,mkStyle(true,'FFFFFF','085041','right'));
+  html+=`<tr><td colspan="4" style="font-family:Arial;font-weight:bold;color:${WHITE};background:${GD};padding:5px 8px;">合計</td><td style="font-family:Arial;font-weight:bold;color:${WHITE};background:${GD};text-align:right;padding:5px 8px;">NT$${grandTotal}</td></tr>`;
+  html+='</table>';
 
-  ws2['!ref']=`A1:F${row}`;
-  ws2['!cols']=[{wch:10},{wch:10},{wch:42},{wch:6},{wch:10},{wch:4}];
-  XLSX.utils.book_append_sheet(WB,ws2,'個人點餐明細');
-
-  // ═══════════════════════════════════
-  // Sheet 3: 彙整清單
-  // ═══════════════════════════════════
-  const ws3={};
-  row=1;
-  cell(ws3,`A${row}`,title1,mkStyle(true,'FFFFFF','1D9E75','center'));
-  merge(ws3,{r:0,c:0},{r:0,c:4});
-  row++;
-  ['分類','品項','份數','金額',''].forEach((h,ci)=>{
-    cell(ws3,`${COLS[ci]}${row}`,h,mkStyle(true,'888888','F4F3EF','center'));
-  });
-  row++;
-
-  // Group by cat
+  // ── Sheet 3: 彙整清單（新頁）──
+  html+='<br><br>';
+  html+=`<table><tr><td colspan="4" style="font-family:Arial;font-size:13pt;font-weight:bold;color:${WHITE};background:${G};padding:8px 14px;text-align:center;">${title}</td></tr>`;
+  html+=tr([th('分類',WHITE,G),th('品項','555555',GRAY),th('份數','555555',GRAY,'center'),th('金額','555555',GRAY,'right')]);
   const catGroups={};
-  Object.entries(mergedAll).forEach(([label,v])=>{
-    if(!catGroups[v.cat])catGroups[v.cat]=[];
-    catGroups[v.cat].push({label,qty:v.qty,price:v.price,amt:v.qty*v.price});
-  });
+  Object.entries(mergedAll).forEach(([label,v])=>{if(!catGroups[v.cat])catGroups[v.cat]=[];catGroups[v.cat].push({label,qty:v.qty,price:v.price,amt:v.qty*v.price});});
   Object.keys(catGroups).sort((a,b)=>a.localeCompare(b,'zh-Hant')).forEach(cat=>{
     const items=catGroups[cat].sort((a,b)=>a.label.localeCompare(b.label,'zh-Hant'));
     const catTotal=items.reduce((s,i)=>s+i.amt,0);
     const catQty=items.reduce((s,i)=>s+i.qty,0);
-    cell(ws3,`A${row}`,cat,mkStyle(true,GREEN,'E1F5EE'));
-    cell(ws3,`C${row}`,catQty,mkStyle(true,GREEN,'E1F5EE','center'));
-    cell(ws3,`D${row}`,'NT$'+catTotal,mkStyle(true,GREEN,'E1F5EE','right'));
-    row++;
+    html+=`<tr><td style="font-family:Arial;font-weight:bold;color:${GD};background:${GL};padding:5px 8px;">${cat}</td><td style="background:${GL}"></td><td style="font-family:Arial;font-weight:bold;color:${G};background:${GL};text-align:center;">${catQty}</td><td style="font-family:Arial;font-weight:bold;color:${G};background:${GL};text-align:right;">NT$${catTotal}</td></tr>`;
     items.forEach(item=>{
-      cell(ws3,`B${row}`,item.label,mkStyle(false,'1a1a1a',null));
-      cell(ws3,`C${row}`,item.qty,mkStyle(false,'444444',null,'center'));
-      cell(ws3,`D${row}`,'NT$'+item.amt,mkStyle(true,'1D9E75',null,'right'));
-      row++;
+      html+=`<tr><td></td><td style="font-family:Arial;padding:3px 8px;">${item.label}</td><td style="font-family:Arial;color:#444;text-align:center;">${item.qty}</td><td style="font-family:Arial;font-weight:bold;color:${G};text-align:right;">NT$${item.amt}</td></tr>`;
     });
   });
-  cell(ws3,`A${row}`,'合計',mkStyle(true,'FFFFFF','085041','center'));
-  merge(ws3,{r:row-1,c:0},{r:row-1,c:1});
-  cell(ws3,`C${row}`,grandCnt,mkStyle(true,'FFFFFF','085041','center'));
-  cell(ws3,`D${row}`,'NT$'+grandTotal,mkStyle(true,'FFFFFF','085041','right'));
+  html+=`<tr><td colspan="2" style="font-family:Arial;font-weight:bold;color:${WHITE};background:${GD};padding:5px 8px;">合計</td><td style="font-family:Arial;font-weight:bold;color:${WHITE};background:${GD};text-align:center;">${grandCnt}</td><td style="font-family:Arial;font-weight:bold;color:${WHITE};background:${GD};text-align:right;">NT$${grandTotal}</td></tr>`;
+  html+='</table></body></html>';
 
-  ws3['!ref']=`A1:E${row}`;
-  ws3['!cols']=[{wch:10},{wch:32},{wch:8},{wch:12},{wch:4}];
-  XLSX.utils.book_append_sheet(WB,ws3,'彙整清單');
-
-  // ── 下載 ──
+  // 下載
+  const blob=new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
   const now=new Date();
   const pad=n=>String(n).padStart(2,'0');
-  const fname=`便當訂單_${dayName}_${shopName}_${now.getMonth()+1}${pad(now.getDate())}.xlsx`;
-  XLSX.writeFile(WB,fname);
+  a.href=url;
+  a.download=`便當訂單_${dayName}_${shopName}_${now.getMonth()+1}${pad(now.getDate())}.xls`;
+  a.click();
+  URL.revokeObjectURL(url);
   showToast('Excel 已下載！');
 }
 function showToast(msg){imeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);}
