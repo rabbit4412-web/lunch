@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.32 2026-05-25 -->
+<!-- lunch-v4.33 2026-05-25 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -232,7 +232,7 @@ button,input,select{font-family:inherit;}
 </head>
 <body>
 
-<div id="fbBanner">v4.32 Firebase 即時同步</div>
+<div id="fbBanner">v4.33 Firebase 即時同步</div>
 
 <div class="hdr">
   <div class="hdr-top">
@@ -1062,9 +1062,9 @@ function selCat(c){curCat=c;renderCatBar();renderMenu();}
 function toggleDept(di){const el=document.getElementById('dm'+di);el.style.display=el.style.display==='none'?'':'none';}
 function clickItem(id){if(!curMember){showToast('請先選擇你的名字');return;}if(!isAdmin&&isOrderClosed()){showToast('點餐已截止，請管理員清除截止時間');return;}addItemToOrder(id,null);}
 function clickItemOpt(id,opt,e){e.stopPropagation();if(!curMember){showToast('請先選擇你的名字');return;}if(!isAdmin&&isOrderClosed()){showToast('點餐已截止，請管理員清除截止時間');return;}addItemToOrder(id,opt);}
-function addItemToOrder(id,option){const key=option?String(id)+'_'+option:String(id);mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};o.items[key]=(o.items[key]||0)+1;});renderDepts();renderMenu();updateHdr();renderWeek();}
+function addItemToOrder(id,option){const key=option?String(id)+'_'+option:String(id);mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};o.items[key]=(o.items[key]||0)+1;});renderDepts();renderCatBar();renderMenu();updateHdr();renderWeek();}
 function closeOptionModal(){document.getElementById('optionModal').classList.remove('open');}
-function chQty(key,d,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}mutOrder(curMember.dept,curMember.name,o=>{const nv=Math.max(0,(o.items[key]||0)+d);if(nv===0){delete o.items[key];if(o.itemOptions)delete o.itemOptions[key];}else o.items[key]=nv;});renderDepts();renderMenu();updateHdr();renderWeek();}
+function chQty(key,d,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}mutOrder(curMember.dept,curMember.name,o=>{const nv=Math.max(0,(o.items[key]||0)+d);if(nv===0){delete o.items[key];if(o.itemOptions)delete o.itemOptions[key];}else o.items[key]=nv;});renderDepts();renderCatBar();renderMenu();updateHdr();renderWeek();}
 function setRice(opt,e){e.stopPropagation();if(!curMember)return;mutOrder(curMember.dept,curMember.name,o=>{o.rice=opt;});renderMenu();}
 function toggleAddon(sid,addon,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}const ak=sid+'_ADD_'+addon;mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};const baseQty=o.items[sid]||0;if(baseQty===0){showToast('請先選擇主餐');return;}if(o.items[ak])delete o.items[ak];else o.items[ak]=baseQty;});renderDepts();renderMenu();updateHdr();}
 function clearDay(){if(!confirm('確定清空今天所有訂單？'))return;const rid=todayRid();if(rid&&orders[dk()])delete orders[dk()][rid];lockedOrders[dk()]={};pushOrders();pushLocked();renderAll();renderSummary();showToast('已清空');}
@@ -1255,7 +1255,9 @@ document.getElementById('pwdInput').addEventListener('keydown',e=>{if(e.key==='E
 /* ── modal ── */
 function closeModal(){document.getElementById('modalBg').classList.remove('open');_modalCb=null;}
 function confirmModal(){if(_modalCb){if(_modalCb()!==false)closeModal();}else closeModal();}
-document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===document.getElementById('modalBg'))closeModal();});
+// 用 mousedown 而非 click，避免手機 click 事件冒泡到背景導致 modal 立即關閉
+document.getElementById('modalBg').addEventListener('mousedown',e=>{if(e.target===document.getElementById('modalBg'))closeModal();});
+document.getElementById('modalBg').addEventListener('touchstart',e=>{if(e.target===document.getElementById('modalBg'))closeModal();},{passive:true});
 
 /* ── 截止時間操作 ── */
 function openDeadlineModal(dayIndex){
