@@ -833,10 +833,26 @@ function renderSummary(){
       if(!isLocked(dept.name,m)){const o=getOrder(dept.name,m);if(Object.keys(o.items||{}).length>0)unlockedB++;return;}
       const o=getOrder(dept.name,m);const rice=o.rice||'正常';
       let mt=0;const grouped={};
+      // 先收集主餐
+      const mainItems={};
       Object.keys(o.items||{}).forEach(k=>{
-        if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);const addonDisplayN=getOptDisplayName(addonN);if(addonPrice>0){const lb='+ '+addonDisplayN;if(!grouped[lb])grouped[lb]={qty:0,unitPrice:addonPrice};grouped[lb].qty+=(o.items[k]||0);mt+=addonPrice*(o.items[k]||0);}return;}
+        if(isAddonKey(k))return;
         const it=findItemByKey(r?.items,k);
-        if(it){const optN=getOptName(o,k);const unitPrice=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);if(!grouped[label])grouped[label]={qty:0,unitPrice};grouped[label].qty+=o.items[k];mt+=unitPrice*o.items[k];}
+        if(it){const optN=getOptName(o,k);const unitPrice=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);if(!mainItems[label])mainItems[label]={qty:0,unitPrice,sid:String(it.id)};mainItems[label].qty+=o.items[k];mt+=unitPrice*o.items[k];}
+      });
+      // 收集加點，找對應的主餐 sid
+      const addonsMap={};// sid -> [addonName]
+      Object.keys(o.items||{}).forEach(k=>{
+        if(!isAddonKey(k))return;
+        const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);
+        if(addonPrice>0){mt+=addonPrice*(o.items[k]||0);const baseSid=k.split('_ADD_')[0].split('_')[0];if(!addonsMap[baseSid])addonsMap[baseSid]=[];addonsMap[baseSid].push(getOptDisplayName(addonN));}
+      });
+      // 合併：加點附在對應主餐後面
+      Object.keys(mainItems).forEach(label=>{
+        const {qty,unitPrice,sid}=mainItems[label];
+        const addons=addonsMap[sid]||[];
+        const fullLabel=addons.length>0?label+' + '+addons.join('、'):label;
+        if(!grouped[fullLabel])grouped[fullLabel]={qty:0,unitPrice};grouped[fullLabel].qty+=qty;
       });
       if(!Object.keys(grouped).length)return;
       const sortedNames=Object.keys(grouped).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
