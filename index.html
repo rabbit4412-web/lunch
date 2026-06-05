@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.34 2026-05-26 imgbb圖片上傳 -->
+<!-- lunch-v4.35 2026-06-04 修正有主食選項時加點不顯示 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -682,6 +682,7 @@ function renderMenu(){
       const optBtns=item.options.map((opt,oi)=>{const k=sid+'_'+opt;const qty=o.items[k]||0;const extraP=parseOptPrice(opt);const dispN=getOptDisplayName(opt);const pTag=extraP>0?` <span style="font-size:10px;opacity:.8;color:var(--amber);">+${extraP}</span>`:'';return`<button class="opt-inline${qty>0?' active':''}" data-iid="${item.id}" data-oi="${oi}">${dispN}${pTag}${qty>0?' ×'+qty:''}</button>`;}).join('');
       body+=`<div class="opts-inline">${optBtns}</div>`;
       myKeys.forEach(k=>{const optName=k.slice(sid.length+1);const qty=o.items[k];const dispOptName=getOptDisplayName(optName);const extraOptP=parseOptPrice(optName);const unitOptP=item.price+extraOptP;body+=`<div class="qty-ctrl" style="margin-top:4px;"><span style="font-size:11px;color:var(--gd);flex:1;">${dispOptName} <span style="color:var(--green);font-weight:700;">NT$${unitOptP}</span></span><button class="qty-b" data-key="${k}" data-d="-1">−</button><span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${qty}</span><button class="qty-b" data-key="${k}" data-d="1">+</button></div>`;});
+      if(mq>0&&item.addons&&item.addons.length>0){const addonBtns=item.addons.map((addon,ai)=>{const ak=sid+'_ADD_'+addon;const aqty=o.items[ak]||0;const aPrice=parseOptPrice(addon);const aName=getOptDisplayName(addon);return`<button class="rice-btn${aqty>0?' active':''}" style="${aqty>0?'background:var(--gl);color:var(--gm);border-color:var(--green);':''}" data-addon-sid="${sid}" data-ai="${ai}">${aName}${aPrice>0?' +'+aPrice:''}${aqty>0?' ✓':''}</button>`;}).join('');body+=`<div class="rice-row" style="margin-top:5px;">${addonBtns}</div>`;}
     }else{
       const itemRices=item.riceOptions||(item.hasRice?['正常','半飯','不要飯']:null);
       const rh=mq>0&&itemRices?`<div class="rice-row">${itemRices.map((rv,ri)=>`<button class="rice-btn${ro===rv?' active':''}" data-ri="${ri}" data-sid="${sid}">${rv}</button>`).join('')}</div>`:'';
