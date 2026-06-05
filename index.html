@@ -893,10 +893,32 @@ function renderSummary(){
   depts.forEach(d=>d.members.forEach(m=>{
     if(!isLocked(d.name,m))return;
     const o=getOrder(d.name,m);const rice=o.rice||'正常';
+    // 收集主餐
+    const mMap={};
     Object.keys(o.items||{}).forEach(k=>{
-      if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);const addonDN=getOptDisplayName(addonN);if(addonPrice>0){const lb='+ '+addonDN;if(!all[lb])all[lb]={label:lb,price:addonPrice,qty:0,cat:'加點'};all[lb].qty+=(o.items[k]||0);}return;}
+      if(isAddonKey(k))return;
       const it=findItemByKey(r?.items,k);
-      if(it){const optN=getOptName(o,k);const label=buildLabel(it,optN,rice);if(!all[label])all[label]={label,price:getItemTotalPrice(it,optN),qty:0,cat:it.cat||'其他'};all[label].qty+=o.items[k];}
+      if(it){const optN=getOptName(o,k);const label=buildLabel(it,optN,rice);
+        if(!mMap[label])mMap[label]={price:getItemTotalPrice(it,optN),qty:0,sid:String(it.id),cat:it.cat||'其他'};
+        mMap[label].qty+=o.items[k];}
+    });
+    // 收集加點 sid -> [{name,price,qty}]
+    const aMap={};
+    Object.keys(o.items||{}).forEach(k=>{
+      if(!isAddonKey(k))return;
+      const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);
+      if(addonPrice>0){const baseSid=k.split('_ADD_')[0].split('_')[0];
+        if(!aMap[baseSid])aMap[baseSid]=[];
+        aMap[baseSid].push({name:getOptDisplayName(addonN),price:addonPrice,qty:o.items[k]||0});}
+    });
+    // 合併：加點附在主餐 label 後面
+    Object.entries(mMap).forEach(([label,{price,qty,sid,cat}])=>{
+      const addons=aMap[sid]||[];
+      const addonMt=addons.reduce((s,a)=>s+a.price*a.qty,0);
+      const fullLabel=addons.length>0?label+' +'+addons.map(a=>a.name).join(' +'):label;
+      const totalPrice=price+(qty>0?Math.round(addonMt/qty):0);
+      if(!all[fullLabel])all[fullLabel]={label:fullLabel,price:totalPrice,qty:0,cat};
+      all[fullLabel].qty+=qty;
     });
   }));
   const catOrder={};
