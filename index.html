@@ -806,7 +806,7 @@ function renderSummary(){
       Object.keys(o.items||{}).forEach(k=>{
         if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);const addonDisplayN=getOptDisplayName(addonN);if(addonPrice>0){const s=addonPrice*(o.items[k]||0);dt+=s;gT+=s;const lb='+ '+addonDisplayN;if(!itemGroups[lb])itemGroups[lb]={price:addonPrice,members:[]};itemGroups[lb].members.push({name:m,qty:o.items[k]||0,amt:s,key:k});}return;}
         const it=findItemByKey(r?.items,k);
-        if(it){const optN=getOptName(o,k);const s=getItemTotalPrice(it,optN)*o.items[k];dt+=s;gT+=s;gC+=o.items[k];const label=buildLabel(it,optN,rice);if(!itemGroups[label])itemGroups[label]={price:getItemTotalPrice(it,optN),members:[]};itemGroups[label].members.push({name:m,qty:o.items[k],amt:s,key:k,dept:dept.name});}
+        if(it){const optN=getOptName(o,k);const basePrice=it.price+parseOptPrice(optN);const s=basePrice*o.items[k];dt+=s;gT+=s;gC+=o.items[k];const label=buildLabel(it,optN,rice);if(!itemGroups[label])itemGroups[label]={price:basePrice,members:[]};itemGroups[label].members.push({name:m,qty:o.items[k],amt:s,key:k,dept:dept.name,sid:String(it.id)});}
       });
     });
     const groupKeys=Object.keys(itemGroups);if(!groupKeys.length)return;
@@ -817,7 +817,15 @@ function renderSummary(){
       const grpTotal=grp.members.reduce((s,x)=>s+x.amt,0);const grpQty=grp.members.reduce((s,x)=>s+x.qty,0);
       const rows=grp.members.map(x=>{
         const cancelBtn=isAdmin?`<button class="sum-cancel-btn" data-cdept="${dept.name.replace(/"/g,'&quot;')}" data-cmem="${x.name.replace(/"/g,'&quot;')}" data-ckey="${x.key.replace(/"/g,'&quot;')}">✕ 取消</button>`:'';
-        return`<div class="sum-person-row"><span class="sum-person-name">${x.name}</span><span class="sum-person-qty">× ${x.qty}</span><span class="sum-person-amt">NT$${x.amt}</span>${cancelBtn}</div>`;
+        // 找這個人對應此品項的加點
+        const personO=getOrder(dept.name,x.name);
+        const addonRows=x.sid?Object.keys(personO.items||{}).filter(k=>isAddonKey(k)&&k.startsWith(x.sid+'_ADD_')).map(ak=>{
+          const addonN=getAddonName(ak);const addonPrice=parseOptPrice(addonN);const addonDN=getOptDisplayName(addonN);
+          const addonAmt=addonPrice*(personO.items[ak]||0);
+          const addonCancelBtn=isAdmin?`<button class="sum-cancel-btn" data-cdept="${dept.name.replace(/"/g,'&quot;')}" data-cmem="${x.name.replace(/"/g,'&quot;')}" data-ckey="${ak.replace(/"/g,'&quot;')}">✕ 取消</button>`:'';
+          return`<div class="sum-person-row" style="padding-left:32px;"><span class="sum-person-name" style="color:var(--amber);font-size:11px;">+ ${addonDN}</span><span class="sum-person-qty">× ${personO.items[ak]||0}</span><span class="sum-person-amt" style="color:var(--amber);">NT$${addonAmt}</span>${addonCancelBtn}</div>`;
+        }).join(''):'';
+        return`<div class="sum-person-row"><span class="sum-person-name">${x.name}</span><span class="sum-person-qty">× ${x.qty}</span><span class="sum-person-amt">NT$${x.amt}</span>${cancelBtn}</div>${addonRows}`;
       }).join('');
       pr+=`<div class="sum-item-group"><div class="sum-item-label"><span class="sum-item-label-name">${label}</span><span class="sum-item-label-total">共 ${grpQty} 份　NT$${grpTotal}</span></div>${rows}</div>`;
     });
@@ -853,16 +861,21 @@ function renderSummary(){
         const {qty,unitPrice,sid}=mainItems[label];
         const addons=addonsMap[sid]||[];
         const fullLabel=addons.length>0?label+' + '+addons.join('、'):label;
-        const itemMt=unitPrice*qty+(addons.reduce((s,a)=>{const addonKey=Object.keys(o.items||{}).find(k=>isAddonKey(k)&&getOptDisplayName(getAddonName(k))===a&&k.startsWith(sid));return s+(addonKey?parseOptPrice(getAddonName(addonKey))*(o.items[addonKey]||0):0);},0));
+        // itemMt = 該品項主餐金額 + 對應加點金額
+        const itemAddonMt=addons.reduce((s,a)=>{
+          const addonKey=Object.keys(o.items||{}).find(k=>isAddonKey(k)&&getOptDisplayName(getAddonName(k))===a&&k.startsWith(sid));
+          return s+(addonKey?parseOptPrice(getAddonName(addonKey))*(o.items[addonKey]||0):0);
+        },0);
+        const itemMt=unitPrice*qty+itemAddonMt;
         if(!itemPersonMap[fullLabel])itemPersonMap[fullLabel]=[];
-        itemPersonMap[fullLabel].push({name:m,mt});
+        itemPersonMap[fullLabel].push({name:m,mt,itemMt});
       });
     });
     if(!Object.keys(itemPersonMap).length)return;
-    // 依餐點名稱排序，同餐點的人排在一起
+    // 依餐點名稱排序，同餐點的人排在一起，每行顯示單一品項價格
     const sortedLabels=Object.keys(itemPersonMap).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
     const rows=sortedLabels.map(label=>{
-      return itemPersonMap[label].map(p=>`<div class="spb-row"><span class="spb-name">${p.name}</span><span class="spb-items">${label}</span><span class="spb-total">NT$${p.mt}</span></div>`).join('');
+      return itemPersonMap[label].map(p=>`<div class="spb-row"><span class="spb-name">${p.name}</span><span class="spb-items">${label}</span><span class="spb-total">NT$${p.itemMt}</span></div>`).join('');
     });
     const deptTotal=dept.members.filter(m=>isLocked(dept.name,m)).reduce((s,m)=>s+mTotal(dept.name,m),0);
     dhB+=`<div class="sum-person-block"><div style="padding:7px 14px;background:var(--sf2);border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;font-weight:700;color:var(--hint);letter-spacing:.06em;">${dept.name}</span><span style="font-size:13px;font-weight:700;color:var(--green);">NT$${deptTotal}</span></div>${rows.join('')}</div>`;
