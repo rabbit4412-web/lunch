@@ -1287,10 +1287,36 @@ function downloadExcel(){
     dept.members.forEach(m=>{
       if(!isLocked(dept.name,m))return;
       const o=getOrder(dept.name,m);const rice=o.rice||'正常';
+      // 收集主餐
+      const exMainMap={};
       Object.keys(o.items||{}).forEach(k=>{
-        if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);if(addonPrice>0){const lb='+ '+getOptDisplayName(addonN);if(!itemGroups[lb])itemGroups[lb]={price:addonPrice,cat:'加點',persons:[]};itemGroups[lb].persons.push({name:m,qty:o.items[k]||0,amt:addonPrice*(o.items[k]||0)});deptTotal+=addonPrice*(o.items[k]||0);deptCnt+=(o.items[k]||0);}return;}
+        if(isAddonKey(k))return;
         const it=findItemByKey(r.items,k);
-        if(it){const optN=getOptName(o,k);const price=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);const amt=price*(o.items[k]||0);if(!itemGroups[label])itemGroups[label]={price,cat:it.cat||'其他',persons:[]};itemGroups[label].persons.push({name:m,qty:o.items[k],amt});deptTotal+=amt;deptCnt+=o.items[k];if(!mergedAll[label])mergedAll[label]={price,qty:0,cat:it.cat||'其他'};mergedAll[label].qty+=o.items[k];}
+        if(it){const optN=getOptName(o,k);const basePrice=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);
+          if(!exMainMap[label])exMainMap[label]={basePrice,cat:it.cat||'其他',qty:0,sid:String(it.id)};
+          exMainMap[label].qty+=o.items[k];deptTotal+=basePrice*o.items[k];deptCnt+=o.items[k];}
+      });
+      // 收集加點 sid -> [{name,price,qty}]
+      const exAMap={};
+      Object.keys(o.items||{}).forEach(k=>{
+        if(!isAddonKey(k))return;
+        const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);
+        if(addonPrice>0){const baseSid=k.split('_ADD_')[0].split('_')[0];
+          if(!exAMap[baseSid])exAMap[baseSid]=[];
+          exAMap[baseSid].push({name:getOptDisplayName(addonN),price:addonPrice,qty:o.items[k]||0});
+          deptTotal+=addonPrice*(o.items[k]||0);}
+      });
+      // 合併主餐+加點
+      Object.entries(exMainMap).forEach(([label,{basePrice,cat,qty,sid}])=>{
+        const addons=exAMap[sid]||[];
+        const addonMt=addons.reduce((s,a)=>s+a.price*a.qty,0);
+        const fullLabel=addons.length>0?label+' +'+addons.map(a=>a.name).join(' +'):label;
+        const totalPrice=basePrice+(qty>0?Math.round(addonMt/qty):0);
+        const amt=totalPrice*qty;
+        if(!itemGroups[fullLabel])itemGroups[fullLabel]={price:totalPrice,cat,persons:[]};
+        itemGroups[fullLabel].persons.push({name:m,qty,amt});
+        if(!mergedAll[fullLabel])mergedAll[fullLabel]={price:totalPrice,qty:0,cat};
+        mergedAll[fullLabel].qty+=qty;
       });
     });
     if(Object.keys(itemGroups).length){deptData.push({name:dept.name,total:deptTotal,cnt:deptCnt,items:itemGroups});grandTotal+=deptTotal;grandCnt+=deptCnt;}
@@ -1319,11 +1345,31 @@ function downloadExcel(){
     dept.members.forEach(m=>{
       if(!isLocked(dept.name,m))return;
       const o=getOrder(dept.name,m);const rice=o.rice||'正常';let mt=0;const grouped={};
-      Object.keys(o.items||{}).forEach(k=>{if(isAddonKey(k)){const addonN=getAddonName(k);const ap=parseOptPrice(addonN);if(ap>0){const lb='+'+getOptDisplayName(addonN);if(!grouped[lb])grouped[lb]={qty:0,price:ap};grouped[lb].qty+=(o.items[k]||0);mt+=ap*(o.items[k]||0);}return;}const it=findItemByKey(r.items,k);if(it){const optN=getOptName(o,k);const price=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);if(!grouped[label])grouped[label]={qty:0,price};grouped[label].qty+=o.items[k];mt+=price*o.items[k];}});
-      if(!Object.keys(grouped).length)return;
+      // 收集主餐
+      const s2MMap={};
+      Object.keys(o.items||{}).forEach(k=>{
+        if(isAddonKey(k))return;
+        const it=findItemByKey(r.items,k);
+        if(it){const optN=getOptName(o,k);const price=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);
+          if(!s2MMap[label])s2MMap[label]={qty:0,price,sid:String(it.id)};
+          s2MMap[label].qty+=o.items[k];mt+=price*o.items[k];}
+      });
+      // 收集加點
+      const s2AM={};
+      Object.keys(o.items||{}).forEach(k=>{
+        if(!isAddonKey(k))return;
+        const addonN=getAddonName(k);const ap=parseOptPrice(addonN);
+        if(ap>0){const baseSid=k.split('_ADD_')[0].split('_')[0];
+          if(!s2AM[baseSid])s2AM[baseSid]=[];s2AM[baseSid].push(getOptDisplayName(addonN));mt+=ap*(o.items[k]||0);}
+      });
+      if(!Object.keys(s2MMap).length)return;
       deptTotal+=mt;
-      const itemText=Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant')).map(([n,g])=>n+'×'+g.qty).join('、');
-      rows2.push({name:m,itemText,total:mt});
+      // 每個主餐獨立一行，加點附在後面
+      Object.entries(s2MMap).sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant')).forEach(([label,{qty,price,sid}])=>{
+        const addons=s2AM[sid]||[];
+        const fullLabel=addons.length>0?label+' +'+addons.join(' +'):label;
+        rows2.push({name:m,itemText:fullLabel+'×'+qty,total:price*qty});
+      });
     });
     if(!rows2.length)return;
     html+=`<tr><td style="font-family:Arial;font-weight:bold;color:${GD};background:${GL};padding:5px 8px;">${dept.name}</td><td colspan="3" style="background:${GL}"></td><td style="font-family:Arial;font-weight:bold;color:${G};background:${GL};text-align:right;padding:5px 8px;">NT$${deptTotal}</td></tr>`;
