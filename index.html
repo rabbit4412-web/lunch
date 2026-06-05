@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>公司便當訂購系統</title>
-<!-- lunch-v4.35 2026-06-04 修正有主食選項時加點不顯示及判斷錯誤 -->
+<!-- lunch-v4.35 2026-06-05 修正加點顯示及取消邏輯 -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -688,7 +688,7 @@ function renderMenu(){
       const rh=mq>0&&itemRices?`<div class="rice-row">${itemRices.map((rv,ri)=>`<button class="rice-btn${ro===rv?' active':''}" data-ri="${ri}" data-sid="${sid}">${rv}</button>`).join('')}</div>`:'';
       const qh=mq>0?`<div class="qty-ctrl"><button class="qty-b" data-key="${sid}" data-d="-1">−</button><span style="font-size:12px;font-weight:700;min-width:16px;text-align:center;">${mq}</span><button class="qty-b" data-key="${sid}" data-d="1">+</button></div>`:'';
       let addonHtml='';
-      if(item.addons&&item.addons.length>0){const addonBtns=item.addons.map((addon,ai)=>{const ak=sid+'_ADD_'+addon;const aqty=o.items[ak]||0;const aPrice=parseOptPrice(addon);const aName=getOptDisplayName(addon);return`<button class="rice-btn${aqty>0?' active':''}" style="${aqty>0?'background:var(--gl);color:var(--gm);border-color:var(--green);':''}" data-addon-sid="${sid}" data-ai="${ai}">${aName}${aPrice>0?' +'+aPrice:''}${aqty>0?' ✓':''}</button>`;}).join('');addonHtml=`<div class="rice-row" style="margin-top:5px;">${addonBtns}</div>`;}
+      if(mq>0&&item.addons&&item.addons.length>0){const addonBtns=item.addons.map((addon,ai)=>{const ak=sid+'_ADD_'+addon;const aqty=o.items[ak]||0;const aPrice=parseOptPrice(addon);const aName=getOptDisplayName(addon);return`<button class="rice-btn${aqty>0?' active':''}" style="${aqty>0?'background:var(--gl);color:var(--gm);border-color:var(--green);':''}" data-addon-sid="${sid}" data-ai="${ai}">${aName}${aPrice>0?' +'+aPrice:''}${aqty>0?' ✓':''}</button>`;}).join('');addonHtml=`<div class="rice-row" style="margin-top:5px;">${addonBtns}</div>`;}
       body=qh+rh+addonHtml;
     }
     return`<div class="mcard${mq>0?' sel':''}" onclick="${orderClosed?'void(0)':(hasOpts?'void(0)':'clickItem('+item.id+')')}">${tq>0?`<div class="qbadge">${tq}</div>`:''}<div class="cat-tag">${item.cat}</div><div class="mname">${item.name}</div><div class="mprice">NT$${item.price}${mq>0&&!hasOpts?' ×'+mq:''}</div>${body}</div>`;
@@ -954,7 +954,7 @@ function addItemToOrder(id,option){const key=option?String(id)+'_'+option:String
 function closeOptionModal(){document.getElementById('optionModal').classList.remove('open');}
 function chQty(key,d,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}mutOrder(curMember.dept,curMember.name,o=>{const nv=Math.max(0,(o.items[key]||0)+d);if(nv===0){delete o.items[key];if(o.itemOptions)delete o.itemOptions[key];}else o.items[key]=nv;});renderDepts();renderCatBar();renderMenu();updateHdr();renderWeek();}
 function setRice(opt,e){e.stopPropagation();if(!curMember)return;mutOrder(curMember.dept,curMember.name,o=>{o.rice=opt;});renderMenu();}
-function toggleAddon(sid,addon,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}const ak=sid+'_ADD_'+addon;mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};const baseQty=Object.keys(o.items||{}).filter(k=>k===sid||(k.startsWith(sid+'_')&&!k.includes('_ADD_'))).reduce((s,k)=>s+(o.items[k]||0),0);if(baseQty===0){showToast('請先選擇主餐');return;}if(o.items[ak])delete o.items[ak];else o.items[ak]=baseQty;});renderDepts();renderMenu();updateHdr();}
+function toggleAddon(sid,addon,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}const ak=sid+'_ADD_'+addon;mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};const baseQty=Object.keys(o.items||{}).filter(k=>k===sid||(k.startsWith(sid+'_')&&!k.includes('_ADD_'))).reduce((s,k)=>s+(o.items[k]||0),0);if(baseQty===0){showToast('請先選擇主餐');return;}if(o.items[ak])delete o.items[ak];else o.items[ak]=1;});renderDepts();renderMenu();updateHdr();}
 function clearDay(){if(!confirm('確定清空今天所有訂單？'))return;const rid=todayRid();if(rid&&orders[dk()])delete orders[dk()][rid];lockedOrders[dk()]={};pushOrders();pushLocked();renderAll();renderSummary();showToast('已清空');}
 
 function copyOrder(){
