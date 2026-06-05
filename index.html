@@ -828,41 +828,44 @@ function renderSummary(){
 
   let dhB='';let unlockedB=0;
   depts.forEach(dept=>{
-    const rows=[];
+    // 收集部門所有人的資料：{餐點label -> [{name, mt}]}
+    const itemPersonMap={};
     dept.members.forEach(m=>{
       if(!isLocked(dept.name,m)){const o=getOrder(dept.name,m);if(Object.keys(o.items||{}).length>0)unlockedB++;return;}
       const o=getOrder(dept.name,m);const rice=o.rice||'正常';
-      let mt=0;const grouped={};
-      // 先收集主餐
+      let mt=0;
+      // 收集主餐
       const mainItems={};
       Object.keys(o.items||{}).forEach(k=>{
         if(isAddonKey(k))return;
         const it=findItemByKey(r?.items,k);
         if(it){const optN=getOptName(o,k);const unitPrice=getItemTotalPrice(it,optN);const label=buildLabel(it,optN,rice);if(!mainItems[label])mainItems[label]={qty:0,unitPrice,sid:String(it.id)};mainItems[label].qty+=o.items[k];mt+=unitPrice*o.items[k];}
       });
-      // 收集加點，找對應的主餐 sid
-      const addonsMap={};// sid -> [addonName]
+      // 收集加點
+      const addonsMap={};
       Object.keys(o.items||{}).forEach(k=>{
         if(!isAddonKey(k))return;
         const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);
         if(addonPrice>0){mt+=addonPrice*(o.items[k]||0);const baseSid=k.split('_ADD_')[0].split('_')[0];if(!addonsMap[baseSid])addonsMap[baseSid]=[];addonsMap[baseSid].push(getOptDisplayName(addonN));}
       });
-      // 合併：加點附在對應主餐後面
+      // 合併主餐+加點，建立 fullLabel
       Object.keys(mainItems).forEach(label=>{
         const {qty,unitPrice,sid}=mainItems[label];
         const addons=addonsMap[sid]||[];
         const fullLabel=addons.length>0?label+' + '+addons.join('、'):label;
-        if(!grouped[fullLabel])grouped[fullLabel]={qty:0,unitPrice};grouped[fullLabel].qty+=qty;
+        const itemMt=unitPrice*qty+(addons.reduce((s,a)=>{const addonKey=Object.keys(o.items||{}).find(k=>isAddonKey(k)&&getOptDisplayName(getAddonName(k))===a&&k.startsWith(sid));return s+(addonKey?parseOptPrice(getAddonName(addonKey))*(o.items[addonKey]||0):0);},0));
+        if(!itemPersonMap[fullLabel])itemPersonMap[fullLabel]=[];
+        itemPersonMap[fullLabel].push({name:m,mt});
       });
-      if(!Object.keys(grouped).length)return;
-      const sortedNames=Object.keys(grouped).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
-      const itemText=sortedNames.map(name=>{const g=grouped[name];return`${name}×${g.qty}`;}).join('、');
-      rows.push(`<div class="spb-row"><span class="spb-name">${m}</span><span class="spb-items">${itemText}</span><span class="spb-total">NT$${mt}</span></div>`);
     });
-    if(rows.length){
-      const deptTotal=dept.members.filter(m=>isLocked(dept.name,m)).reduce((s,m)=>s+mTotal(dept.name,m),0);
-      dhB+=`<div class="sum-person-block"><div style="padding:7px 14px;background:var(--sf2);border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;font-weight:700;color:var(--hint);letter-spacing:.06em;">${dept.name}</span><span style="font-size:13px;font-weight:700;color:var(--green);">NT$${deptTotal}</span></div>${rows.join('')}</div>`;
-    }
+    if(!Object.keys(itemPersonMap).length)return;
+    // 依餐點名稱排序，同餐點的人排在一起
+    const sortedLabels=Object.keys(itemPersonMap).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+    const rows=sortedLabels.map(label=>{
+      return itemPersonMap[label].map(p=>`<div class="spb-row"><span class="spb-name">${p.name}</span><span class="spb-items">${label}</span><span class="spb-total">NT$${p.mt}</span></div>`).join('');
+    });
+    const deptTotal=dept.members.filter(m=>isLocked(dept.name,m)).reduce((s,m)=>s+mTotal(dept.name,m),0);
+    dhB+=`<div class="sum-person-block"><div style="padding:7px 14px;background:var(--sf2);border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;font-weight:700;color:var(--hint);letter-spacing:.06em;">${dept.name}</span><span style="font-size:13px;font-weight:700;color:var(--green);">NT$${deptTotal}</span></div>${rows.join('')}</div>`;
   });
   if(unlockedB>0)dhB+=`<div style="background:var(--al);border:1px solid var(--amber);border-radius:var(--rs);padding:10px 14px;margin-top:8px;font-size:12px;color:var(--amber);">⏳ 尚有 ${unlockedB} 人未送出訂單，送出後才會顯示在總覽</div>`;
   document.getElementById('deptSummaryB').innerHTML=dhB||'<div class="empty">尚無訂單</div>';
