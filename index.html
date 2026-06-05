@@ -804,7 +804,7 @@ function renderSummary(){
       if(!isLocked(dept.name,m)){const o=getOrder(dept.name,m);if(Object.keys(o.items||{}).length>0)unlockedCount++;return;}
       const o=getOrder(dept.name,m);const rice=o.rice||'正常';
       Object.keys(o.items||{}).forEach(k=>{
-        if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);const addonDisplayN=getOptDisplayName(addonN);if(addonPrice>0){const s=addonPrice*(o.items[k]||0);dt+=s;gT+=s;const lb='+ '+addonDisplayN;if(!itemGroups[lb])itemGroups[lb]={price:addonPrice,members:[]};itemGroups[lb].members.push({name:m,qty:o.items[k]||0,amt:s,key:k});}return;}
+        if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);if(addonPrice>0){const s=addonPrice*(o.items[k]||0);dt+=s;gT+=s;}return;}
         const it=findItemByKey(r?.items,k);
         if(it){const optN=getOptName(o,k);const basePrice=it.price+parseOptPrice(optN);const s=basePrice*o.items[k];dt+=s;gT+=s;gC+=o.items[k];const label=buildLabel(it,optN,rice);if(!itemGroups[label])itemGroups[label]={price:basePrice,members:[]};itemGroups[label].members.push({name:m,qty:o.items[k],amt:s,key:k,dept:dept.name,sid:String(it.id)});}
       });
@@ -814,7 +814,13 @@ function renderSummary(){
     let pr='';
     groupKeys.forEach(label=>{
       const grp=itemGroups[label];
-      const grpTotal=grp.members.reduce((s,x)=>s+x.amt,0);const grpQty=grp.members.reduce((s,x)=>s+x.qty,0);
+      const grpMainTotal=grp.members.reduce((s,x)=>s+x.amt,0);
+      const grpAddonTotal=grp.members.reduce((s,x)=>{
+        const pO=getOrder(dept.name,x.name);
+        return s+Object.keys(pO.items||{}).filter(k=>isAddonKey(k)&&x.sid&&k.startsWith(x.sid+'_ADD_')).reduce((a,ak)=>a+parseOptPrice(getAddonName(ak))*(pO.items[ak]||0),0);
+      },0);
+      const grpTotal=grpMainTotal+grpAddonTotal;
+      const grpQty=grp.members.reduce((s,x)=>s+x.qty,0);
       const rows=grp.members.map(x=>{
         const cancelBtn=isAdmin?`<button class="sum-cancel-btn" data-cdept="${dept.name.replace(/"/g,'&quot;')}" data-cmem="${x.name.replace(/"/g,'&quot;')}" data-ckey="${x.key.replace(/"/g,'&quot;')}">✕ 取消</button>`:'';
         // 找這個人對應此品項的加點
