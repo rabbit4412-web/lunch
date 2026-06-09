@@ -1368,7 +1368,8 @@ function downloadExcel(){
       Object.entries(s2MMap).sort((a,b)=>a[0].localeCompare(b[0],'zh-Hant')).forEach(([label,{qty,price,sid}])=>{
         const addons=s2AM[sid]||[];
         const fullLabel=addons.length>0?label+' +'+addons.join(' +'):label;
-        rows2.push({name:m,itemText:fullLabel+'×'+qty,total:price*qty});
+        const s2AddonMt=Object.keys(o.items||{}).filter(k=>isAddonKey(k)&&k.startsWith(sid+'_ADD_')).reduce((s,ak)=>s+parseOptPrice(getAddonName(ak))*(o.items[ak]||0),0);
+        rows2.push({name:m,itemText:fullLabel+'×'+qty,total:price*qty+s2AddonMt});
       });
     });
     if(!rows2.length)return;
