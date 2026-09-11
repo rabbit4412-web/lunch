@@ -446,8 +446,8 @@ const FB={
 // ★ ImgBB API Key（圖片上傳用）
 const IMGBB_KEY='37aa0f571e7acc757470fe991d8179af';
 
-const DAYS=['一','二','三','四','五','TEST'];
-const DAY_KEYS=['mon','tue','wed','thu','fri','TEST'];
+const DAYS=['一','二','三','四','五'];
+const DAY_KEYS=['mon','tue','wed','thu','fri'];
 
 let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
 let curCat='全部',curMember=null;
@@ -559,7 +559,7 @@ function dk(){return DAY_KEYS[curDayIdx];}
 function todayRest(){const rid=schedule[dk()];return rid?allRests[rid]:null;}
 function todayRid(){return schedule[dk()]||null;}
 function getPwd(){return localStorage.getItem('adminPwd')||'1234';}
-function getOrder(dept,member){const rid=todayRid();if(!rid)return{items:{},rice:'正常'};return orders[dk()]?.[rid]?.[dept]?.[member]||{items:{},rice:'正常'};}
+function getOrder(dept,member){const rid=todayRid();if(!rid)return{items:{},rice:'正常'};const raw=orders[dk()]?.[rid]?.[dept]?.[member];if(raw&&!raw.items)raw.items={};return raw||{items:{},rice:'正常'};}
 function mutOrder(dept,member,fn){
   const rid=todayRid();if(!rid)return;const d=dk();
   if(!orders[d])orders[d]={};if(!orders[d][rid])orders[d][rid]={};
@@ -668,6 +668,7 @@ function renderMenu(){
     closedBanner=`<div style="grid-column:1/-1;background:var(--rl);border:1px solid #F09595;border-radius:var(--rs);padding:11px 14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">🔒</span><div><div style="font-size:13px;font-weight:700;color:var(--red);">點餐已截止（${dlText}）</div><div style="font-size:11px;color:#a33;">如需取消截止，請管理員進入管理頁面清除</div></div></div>`;
   }
   const o=getOrder(curMember.dept,curMember.name);
+  if(!o.items)o.items={};
   const ro=o.rice||'正常';
   const rid=todayRid(),ro2=orders[dk()]?.[rid]||{};
   document.getElementById('menuGrid').innerHTML=closedBanner+items.map(item=>{
@@ -1232,7 +1233,7 @@ function processCsv(file,box,txt){
       editingRid=targetRid;pushRests();renderCatBar();renderMenu();renderAdmin();
       box.className='ai-box show ok';txt.textContent='✅ 成功匯入 '+newItems.length+' 筆餐點'+(errors.length?' ('+errors.length+'行略過)':'');
       setTimeout(()=>box.className='ai-box',5000);
-    }catch(err){box.className='ai-box show err';txt.textContent='❌ 解析失敗：'+err.message;setTimeout(()=>box.className='ai-box',5000);}
+    }catch(err){box.className='ai-box show err';txt.textContent='❌ 解析失敗：'+err.message;console.error('CSV解析錯誤:',err);setTimeout(()=>box.className='ai-box',5000);}
   }
   function tryRead(encodings){
     if(!encodings.length){box.className='ai-box show err';txt.textContent='❌ 無法讀取檔案，請另存為 UTF-8 編碼再試';setTimeout(()=>box.className='ai-box',5000);return;}
