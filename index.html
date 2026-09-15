@@ -446,8 +446,8 @@ const FB={
 // ★ ImgBB API Key（圖片上傳用）
 const IMGBB_KEY='37aa0f571e7acc757470fe991d8179af';
 
-const DAYS=['一','二','三','四','五'];
-const DAY_KEYS=['mon','tue','wed','thu','fri'];
+const DAYS=['一','二','三','四','五','TEST'];
+const DAY_KEYS=['mon','tue','wed','thu','fri','TEST'];
 
 let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
 let curCat='全部',curMember=null;
@@ -675,9 +675,9 @@ function renderMenu(){
     const hasOpts=item.options&&item.options.length>0;
     const sid=String(item.id);
     let tq=0;
-    depts.forEach(d=>d.members.forEach(m=>{const mo=ro2[d.name]?.[m]?.items||{};Object.keys(mo).forEach(k=>{if(k===sid||k.startsWith(sid+'_'))tq+=mo[k];});}));
-    const myKeys=Object.keys(o.items||{}).filter(k=>k===sid||k.startsWith(sid+'_'));
-    let mq=0;myKeys.forEach(k=>mq+=o.items[k]);
+    depts.forEach(d=>d.members.forEach(m=>{const mo=ro2[d.name]?.[m]?.items||{};Object.keys(mo).forEach(k=>{if((k===sid||(k.startsWith(sid+'_')&&!isAddonKey(k))))tq+=mo[k]||0;});}));
+    const myKeys=Object.keys(o.items||{}).filter(k=>k===sid||(k.startsWith(sid+'_')&&!isAddonKey(k)));
+    let mq=0;myKeys.forEach(k=>mq+=o.items[k]||0);
     let body='';
     if(hasOpts){
       const optBtns=item.options.map((opt,oi)=>{const k=sid+'_'+opt;const qty=o.items[k]||0;const extraP=parseOptPrice(opt);const dispN=getOptDisplayName(opt);const pTag=extraP>0?` <span style="font-size:10px;opacity:.8;color:var(--amber);">+${extraP}</span>`:'';return`<button class="opt-inline${qty>0?' active':''}" data-iid="${item.id}" data-oi="${oi}">${dispN}${pTag}${qty>0?' ×'+qty:''}</button>`;}).join('');
@@ -1013,7 +1013,14 @@ function clickItem(id){if(!curMember){showToast('請先選擇你的名字');retu
 function clickItemOpt(id,opt,e){e.stopPropagation();if(!curMember){showToast('請先選擇你的名字');return;}if(!isAdmin&&isOrderClosed()){showToast('點餐已截止，請管理員清除截止時間');return;}addItemToOrder(id,opt);}
 function addItemToOrder(id,option){const key=option?String(id)+'_'+option:String(id);mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};o.items[key]=(o.items[key]||0)+1;});renderDepts();renderCatBar();renderMenu();updateHdr();renderWeek();}
 function closeOptionModal(){document.getElementById('optionModal').classList.remove('open');}
-function chQty(key,d,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}mutOrder(curMember.dept,curMember.name,o=>{const nv=Math.max(0,(o.items[key]||0)+d);if(nv===0){delete o.items[key];if(o.itemOptions)delete o.itemOptions[key];}else o.items[key]=nv;});renderDepts();renderCatBar();renderMenu();updateHdr();renderWeek();}
+function chQty(key,d,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}mutOrder(curMember.dept,curMember.name,o=>{const nv=Math.max(0,(o.items[key]||0)+d);if(nv===0){
+        delete o.items[key];
+        if(o.itemOptions)delete o.itemOptions[key];
+        // 如果主餐數量歸0，同步刪除對應的加點
+        const baseSid=key.split('_')[0];
+        const remainMain=Object.keys(o.items||{}).filter(k=>!isAddonKey(k)&&(k===baseSid||k.startsWith(baseSid+'_'))).reduce((s,k)=>s+(o.items[k]||0),0);
+        if(remainMain===0){Object.keys(o.items||{}).filter(k=>isAddonKey(k)&&k.split('_ADD_')[0].split('_')[0]===baseSid).forEach(ak=>delete o.items[ak]);}
+      }else o.items[key]=nv;});renderDepts();renderCatBar();renderMenu();updateHdr();renderWeek();}
 function setRice(opt,e){e.stopPropagation();if(!curMember)return;mutOrder(curMember.dept,curMember.name,o=>{o.rice=opt;});renderMenu();}
 function toggleAddon(sid,addon,e){e.stopPropagation();if(!curMember)return;if(!isAdmin&&isOrderClosed()){showToast('點餐已截止');return;}const ak=sid+'_ADD_'+addon;mutOrder(curMember.dept,curMember.name,o=>{if(!o.items)o.items={};const baseQty=Object.keys(o.items||{}).filter(k=>k===sid||(k.startsWith(sid+'_')&&!k.includes('_ADD_'))).reduce((s,k)=>s+(o.items[k]||0),0);if(baseQty===0){showToast('請先選擇主餐');return;}if(o.items[ak])delete o.items[ak];else o.items[ak]=1;});renderDepts();renderMenu();updateHdr();}
 function clearDay(){if(!confirm('確定清空今天所有訂單？'))return;const rid=todayRid();if(rid&&orders[dk()])delete orders[dk()][rid];lockedOrders[dk()]={};pushOrders();pushLocked();renderAll();renderSummary();showToast('已清空');}
