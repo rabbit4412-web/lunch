@@ -446,8 +446,8 @@ const FB={
 // ★ ImgBB API Key（圖片上傳用）
 const IMGBB_KEY='37aa0f571e7acc757470fe991d8179af';
 
-const DAYS=['一','二','三','四','五','TEST'];
-const DAY_KEYS=['mon','tue','wed','thu','fri','TEST'];
+const DAYS=['一','二','三','四','五'];
+const DAY_KEYS=['mon','tue','wed','thu','fri'];
 
 let curDayIdx=Math.min(Math.max((new Date().getDay()||1)-1,0),4);
 let curCat='全部',curMember=null;
@@ -861,7 +861,8 @@ function renderSummary(){
       Object.keys(o.items||{}).forEach(k=>{
         if(!isAddonKey(k))return;
         const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);
-        if(addonPrice>0){mt+=addonPrice*(o.items[k]||0);const baseSid=k.split('_ADD_')[0].split('_')[0];if(!addonsMap[baseSid])addonsMap[baseSid]=[];addonsMap[baseSid].push(getOptDisplayName(addonN));}
+        if(addonPrice>0)mt+=addonPrice*(o.items[k]||0);
+        {const baseSid=k.split('_ADD_')[0].split('_')[0];if(!addonsMap[baseSid])addonsMap[baseSid]=[];addonsMap[baseSid].push(getOptDisplayName(addonN));}
       });
       // 合併主餐+加點，建立 fullLabel
       Object.keys(mainItems).forEach(label=>{
@@ -908,9 +909,8 @@ function renderSummary(){
     Object.keys(o.items||{}).forEach(k=>{
       if(!isAddonKey(k))return;
       const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);
-      if(addonPrice>0){const baseSid=k.split('_ADD_')[0].split('_')[0];
-        if(!aMap[baseSid])aMap[baseSid]=[];
-        aMap[baseSid].push({name:getOptDisplayName(addonN),price:addonPrice,qty:o.items[k]||0});}
+      if(addonPrice>0){const baseSid_=k.split('_ADD_')[0].split('_')[0];if(!aMap[baseSid_])aMap[baseSid_]=[];aMap[baseSid_].push({name:getOptDisplayName(addonN),price:addonPrice,qty:o.items[k]||0});}
+      else{const baseSid_=k.split('_ADD_')[0].split('_')[0];if(!aMap[baseSid_])aMap[baseSid_]=[];aMap[baseSid_].push({name:getOptDisplayName(addonN),price:0,qty:o.items[k]||0});}
     });
     // 合併：加點附在主餐 label 後面
     Object.entries(mMap).forEach(([label,{price,qty,sid,cat}])=>{
@@ -1048,8 +1048,8 @@ function copyOrder(){
       Object.keys(o.items||{}).forEach(k=>{
         if(!isAddonKey(k))return;
         const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);
-        if(addonPrice>0){mt+=addonPrice*(o.items[k]||0);
-          const baseSid=k.split('_ADD_')[0].split('_')[0];
+        if(addonPrice>0)mt+=addonPrice*(o.items[k]||0);
+        {const baseSid=k.split('_ADD_')[0].split('_')[0];
           if(!addonsMap[baseSid])addonsMap[baseSid]=[];
           addonsMap[baseSid].push(getOptDisplayName(addonN));}
       });
@@ -1082,7 +1082,7 @@ function copyOrder(){
     Object.keys(oC.items||{}).forEach(k=>{
       if(!isAddonKey(k))return;
       const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);
-      if(addonPrice>0){const baseSid=k.split('_ADD_')[0].split('_')[0];if(!aMap[baseSid])aMap[baseSid]=[];aMap[baseSid].push({name:getOptDisplayName(addonN),price:addonPrice,qty:oC.items[k]||0});}
+      {const baseSid=k.split('_ADD_')[0].split('_')[0];if(!aMap[baseSid])aMap[baseSid]=[];aMap[baseSid].push({name:getOptDisplayName(addonN),price:addonPrice,qty:oC.items[k]||0});}
     });
     // 合併
     Object.values(mMap).forEach(({lbl,basePrice,qty,sid,cat})=>{
@@ -1112,7 +1112,7 @@ function saveHistory(){
     if(!isLocked(d.name,m))return;
     const o=getOrder(d.name,m);const rice=o.rice||'正常';const grouped={};let mt=0;
     Object.keys(o.items||{}).forEach(k=>{
-      if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);if(addonPrice>0){const lb='+'+getOptDisplayName(addonN);if(!grouped[lb])grouped[lb]={qty:0,price:addonPrice};grouped[lb].qty+=(o.items[k]||0);mt+=addonPrice*(o.items[k]||0);}return;}
+      if(isAddonKey(k)){const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);{const lb='+'+getOptDisplayName(addonN)+(addonPrice>0?' +'+addonPrice+'元':'');if(!grouped[lb])grouped[lb]={qty:0,price:addonPrice};grouped[lb].qty+=(o.items[k]||0);mt+=addonPrice*(o.items[k]||0);}return;}
       const it=findItemByKey(r.items,k);
       if(it){const optN=getOptName(o,k);let lbl=it.name;if(optN)lbl+=' | '+getOptDisplayName(optN);const itHasRice=it.riceOptions&&it.riceOptions.length>0;if(itHasRice&&rice!=='正常')lbl+=' | '+rice;const unitPrice=getItemTotalPrice(it,optN);if(!grouped[lbl])grouped[lbl]={qty:0,price:unitPrice};grouped[lbl].qty+=o.items[k];mt+=unitPrice*o.items[k];cnt+=o.items[k];}
     });
@@ -1309,10 +1309,10 @@ function downloadExcel(){
       Object.keys(o.items||{}).forEach(k=>{
         if(!isAddonKey(k))return;
         const addonN=getAddonName(k);const addonPrice=parseOptPrice(addonN);
-        if(addonPrice>0){const baseSid=k.split('_ADD_')[0].split('_')[0];
+        if(addonPrice>0)deptTotal+=addonPrice*(o.items[k]||0);
+        {const baseSid=k.split('_ADD_')[0].split('_')[0];
           if(!exAMap[baseSid])exAMap[baseSid]=[];
-          exAMap[baseSid].push({name:getOptDisplayName(addonN),price:addonPrice,qty:o.items[k]||0});
-          deptTotal+=addonPrice*(o.items[k]||0);}
+          exAMap[baseSid].push({name:getOptDisplayName(addonN),price:addonPrice,qty:o.items[k]||0});}
       });
       // 合併主餐+加點
       Object.entries(exMainMap).forEach(([label,{basePrice,cat,qty,sid}])=>{
@@ -1367,8 +1367,9 @@ function downloadExcel(){
       Object.keys(o.items||{}).forEach(k=>{
         if(!isAddonKey(k))return;
         const addonN=getAddonName(k);const ap=parseOptPrice(addonN);
-        if(ap>0){const baseSid=k.split('_ADD_')[0].split('_')[0];
-          if(!s2AM[baseSid])s2AM[baseSid]=[];s2AM[baseSid].push(getOptDisplayName(addonN));mt+=ap*(o.items[k]||0);}
+        if(ap>0)mt+=ap*(o.items[k]||0);
+        {const baseSid=k.split('_ADD_')[0].split('_')[0];
+          if(!s2AM[baseSid])s2AM[baseSid]=[];s2AM[baseSid].push(getOptDisplayName(addonN));}
       });
       if(!Object.keys(s2MMap).length)return;
       deptTotal+=mt;
